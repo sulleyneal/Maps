@@ -263,6 +263,21 @@
   #cartouche .t1{ font-family:var(--font-display); font-size:13px; letter-spacing:.18em; }
   #cartouche .t2{ font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft); margin-top:2px; }
 
+  /* live conditions */
+  #cond-rows .crow{ display:flex; align-items:baseline; gap:8px; padding:7px 4px;
+    border-bottom:1px dotted var(--rule); font-size:13.5px; }
+  body.ui-modern #cond-rows .crow{ border-bottom:none; padding:7px 10px; border-radius:12px; font-size:12.5px; }
+  #cond-rows .cl{ flex:1; }
+  #cond-rows .cl small{ display:block; font-size:10.5px; color:var(--ink-faint); }
+  #cond-rows .cv{ font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .cdot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px;
+    vertical-align:baseline; }
+  .wx-strip{ display:flex; gap:6px; margin-top:8px; }
+  .wx-day{ flex:1; text-align:center; background:var(--chip-bg); border:1px solid var(--panel-border);
+    border-radius:10px; padding:6px 2px 5px; font-size:10px; color:var(--ink-soft); }
+  .wx-day b{ display:block; color:var(--ink); font-size:11.5px; font-variant-numeric:tabular-nums; }
+  .wx-day .em{ font-size:15px; display:block; line-height:1.2; }
+
   /* trail profile card */
   #trail-card{
     position:absolute; z-index:5; left:12px; bottom:46px; width:344px; max-width:calc(100vw - 24px);
@@ -419,6 +434,12 @@
       <div><b>Highways</b>I-20 &middot; US 80 &middot; US 167</div>
     </div>
 
+    <div id="cond-sec" style="display:none">
+      <h2>Right Now</h2>
+      <div id="cond-rows"></div>
+      <p class="hint" id="cond-note" style="margin:8px 0 0"></p>
+    </div>
+
     <h2>Landmarks</h2>
     <p class="hint" style="margin:0 0 6px">Tap any entry to visit it. The finer points &mdash; theaters, museums,
     trailheads &mdash; appear as you zoom closer.</p>
@@ -573,6 +594,146 @@
   ] };
 
   var RELIEF_STOPS = [30,'#3a7d74', 50,'#5d976e', 65,'#8db174', 80,'#c0bd80', 92,'#d3b574', 105,'#c79a60', 120,'#b97f50'];
+
+  var CONDITIONS = { lat: 32.5232, lon: -92.6379, tz: 'America/Chicago' };
+
+  /* ---------- live conditions (USGS water data + Open-Meteo forecast) ---------- */
+  function loadConditions(){
+    var sec = document.getElementById('cond-sec'),
+        rows = document.getElementById('cond-rows'),
+        note = document.getElementById('cond-note');
+    if (!window.fetch || !CONDITIONS) return;
+    var CACHE_KEY = 'cond-' + (CONDITIONS.lake ? CONDITIONS.lake.site : 'wx') + '-v1';
+    var sources = [];
+
+    function row(label, sub, value){
+      var div = document.createElement('div');
+      div.className = 'crow';
+      div.innerHTML = '<span class="cl">' + label + (sub ? '<small>' + sub + '</small>' : '') +
+                      '</span><span class="cv">' + value + '</span>';
+      rows.appendChild(div);
+      sec.style.display = '';
+    }
+    function flowChip(cfs){
+      if (cfs < 250)  return '<span class="cdot" style="background:#3da35d"></span>' + 'Low &mdash; likely wadeable';
+      if (cfs < 900)  return '<span class="cdot" style="background:#d9a13b"></span>' + 'Moderate &mdash; use care';
+      return '<span class="cdot" style="background:#c4453a"></span>' + 'High &mdash; releases running';
+    }
+
+    function renderUSGS(data){
+      try {
+        var series = (data.value && data.value.timeSeries) || [];
+        var bySite = {};
+        series.forEach(function(ts){
+          var site = ts.sourceInfo.siteCode[0].value;
+          var param = ts.variable.variableCode[0].value;
+          var vals = ts.values[0].value;
+          if (!vals.length) return;
+          var v = parseFloat(vals[vals.length - 1].value);
+          if (v <= -99999) return;
+          (bySite[site] = bySite[site] || {})[param] = v;
+        });
+        if (CONDITIONS.river) {
+          for (var i = 0; i < CONDITIONS.river.sites.length; i++) {
+            var sid = CONDITIONS.river.sites[i], d = bySite[sid];
+            if (d && d['00060'] != null) {
+              var extra = d['00010'] != null ? Math.round(d['00010'] * 9/5 + 32) + '&deg;F water &middot; ' : '';
+              row('Mountain Fork flow', extra + flowChip(d['00060']) +
+                  ' &middot; ' + CONDITIONS.river.names[sid],
+                  Math.round(d['00060']).toLocaleString() + ' cfs');
+              break;
+            }
+          }
+        }
+        if (CONDITIONS.lake) {
+          var ld = bySite[CONDITIONS.lake.site];
+          var el = ld && (ld['62614'] != null ? ld['62614'] : ld['00062']);
+          if (el != null) {
+            var dlt = el - CONDITIONS.lake.pool;
+            row(CONDITIONS.lake.label,
+                Math.abs(dlt).toFixed(1) + ' ft ' + (dlt >= 0 ? 'above' : 'below') + ' normal pool',
+                el.toFixed(1) + ' ft');
+          }
+        }
+        sources.push('<a href="https://waterdata.usgs.gov/monitoring-location/USGS-07339000/" target="_blank" rel="noopener">USGS</a>');
+        updateNote();
+      } catch (err) {}
+    }
+
+    var WMO = function(c){
+      if (c === 0) return ['\u2600\ufe0f','Clear'];
+      if (c <= 2)  return ['\u26c5','Partly cloudy'];
+      if (c === 3) return ['\u2601\ufe0f','Cloudy'];
+      if (c < 50)  return ['\ud83c\udf2b','Fog'];
+      if (c < 70)  return ['\ud83c\udf26','Rain'];
+      if (c < 80)  return ['\ud83c\udf28','Wintry'];
+      if (c < 95)  return ['\ud83c\udf27','Showers'];
+      return ['\u26c8','Storms'];
+    };
+    function renderWx(data){
+      try {
+        var cur = data.current, d = data.daily;
+        if (cur) {
+          var w = WMO(cur.weather_code);
+          row('Weather now', w[1], Math.round(cur.temperature_2m) + '&deg;F');
+        }
+        if (d && d.time) {
+          var strip = document.createElement('div');
+          strip.className = 'wx-strip';
+          for (var i = 0; i < Math.min(4, d.time.length); i++) {
+            var day = new Date(d.time[i] + 'T12:00:00');
+            var nm = i === 0 ? 'Today' : day.toLocaleDateString(undefined, { weekday:'short' });
+            var w2 = WMO(d.weather_code[i]);
+            var cell = document.createElement('div');
+            cell.className = 'wx-day';
+            cell.innerHTML = nm + '<span class="em">' + w2[0] + '</span>' +
+              '<b>' + Math.round(d.temperature_2m_max[i]) + '&deg;/' + Math.round(d.temperature_2m_min[i]) + '&deg;</b>' +
+              d.precipitation_probability_max[i] + '%';
+            strip.appendChild(cell);
+          }
+          rows.appendChild(strip);
+          sec.style.display = '';
+        }
+        sources.push('<a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>');
+        updateNote();
+      } catch (err) {}
+    }
+    function updateNote(){
+      note.innerHTML = 'Live from ' + sources.join(' & ') +
+        (CONDITIONS.river ? ' &middot; flow is guidance only &mdash; dam releases change the river quickly' : '') +
+        ' &middot; as of ' + new Date().toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+    }
+
+    try {
+      var cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cached && Date.now() - cached.t < 15 * 60 * 1000) {
+        if (cached.usgs) renderUSGS(cached.usgs);
+        if (cached.wx) renderWx(cached.wx);
+        return;
+      }
+    } catch (err) {}
+    var store = { t: Date.now() };
+    function save(){ try { localStorage.setItem(CACHE_KEY, JSON.stringify(store)); } catch (err) {} }
+
+    if (CONDITIONS.river || CONDITIONS.lake) {
+      var sites = (CONDITIONS.river ? CONDITIONS.river.sites : [])
+        .concat(CONDITIONS.lake ? [CONDITIONS.lake.site] : []);
+      fetch('https://waterservices.usgs.gov/nwis/iv/?format=json&sites=' + sites.join(',') +
+            '&parameterCd=00060,00010,62614,00062&siteStatus=all')
+        .then(function(r){ return r.json(); })
+        .then(function(j){ store.usgs = j; save(); renderUSGS(j); })
+        .catch(function(){});
+    }
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + CONDITIONS.lat +
+          '&longitude=' + CONDITIONS.lon +
+          '&current=temperature_2m,weather_code' +
+          '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code' +
+          '&temperature_unit=fahrenheit&forecast_days=4&timezone=' + encodeURIComponent(CONDITIONS.tz))
+      .then(function(r){ return r.json(); })
+      .then(function(j){ store.wx = j; save(); renderWx(j); })
+      .catch(function(){});
+  }
+  loadConditions();
 
   /* ---------- trails (geometry & elevation profiles precomputed from OSM + USGS DEM) ---------- */
   var TRAILS = (window.TRAILS && window.TRAILS.trails) || [];
