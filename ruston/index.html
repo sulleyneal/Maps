@@ -142,21 +142,6 @@
   }
   #veil.gone{ opacity:0; pointer-events:none; }
 
-  /* landmark tags */
-  .lmk{
-    --c:var(--accent);
-    font-family:'EB Garamond',serif; font-weight:600; font-size:10.5px; letter-spacing:.1em;
-    text-transform:uppercase; white-space:nowrap; color:var(--ink); cursor:pointer;
-    background:rgba(246,238,217,.95); border:1px solid #8a6f4d; border-left:4px solid var(--c);
-    padding:3px 7px 2px; position:relative;
-    box-shadow:0 2px 4px rgba(60,40,10,.35);
-  }
-  .lmk::after{
-    content:""; position:absolute; left:50%; bottom:-5px; margin-left:-4px;
-    border:4px solid transparent; border-top-color:#8a6f4d; border-bottom:none;
-  }
-  .lmk:hover{ background:#fdf7e4; }
-
   /* maplibre chrome, vintage-ified */
   .maplibregl-popup-content{
     font-family:'EB Garamond',serif; background:var(--card); color:var(--ink);
@@ -187,10 +172,11 @@
   @media (max-width:760px){
     body{ flex-direction:column; }
     #panel{
-      order:2; width:100%; min-width:0; height:46%; border-right:none;
+      order:2; width:100%; min-width:0; height:42%; border-right:none;
       border-top:1px solid #a78d63; padding:16px 18px; box-shadow:0 -4px 18px rgba(70,50,20,.25);
     }
-    #map-wrap{ height:54%; }
+    #map-wrap{ height:58%; }
+    .maplibregl-popup-content{ max-width:210px; }
     h1{ font-size:34px }
     #rose{ width:60px; height:60px; right:52px; top:12px; }
     #cartouche{ display:none; }
@@ -299,7 +285,10 @@
   }
 
   var EXAGGERATION = 2.5;
-  var HOME = { center:[-92.6365, 32.5285], zoom:12.35, pitch:52, bearing:-12 };
+  var isNarrow = Math.min(window.innerWidth, window.innerHeight) < 500;
+  var HOME = isNarrow
+    ? { center:[-92.6365, 32.5330], zoom:11.6, pitch:45, bearing:0 }
+    : { center:[-92.6365, 32.5285], zoom:12.35, pitch:52, bearing:-12 };
 
   /* ---------- terrain & contours from public Terrain Tiles (USGS/SRTM via Mapzen on AWS) ---------- */
   var demSource = new mlcontour.DemSource({
@@ -325,6 +314,37 @@
     overzoom: 1
   });
 
+  /* ---------- curated landmarks (rendered as native map symbols, so they collide & anchor properly) ---------- */
+  var CATS = {
+    heritage:  { label:'Heritage',  hex:'#9a3b2e' },
+    education: { label:'Education', hex:'#3f5573' },
+    nature:    { label:'Nature',    hex:'#5c7345' },
+    transport: { label:'Transport', hex:'#8a6f4d' }
+  };
+  var LANDMARKS = [
+    { name:'Downtown & Railroad District', short:'Downtown', cat:'heritage', lngLat:[-92.6374, 32.5232], zoom:15.2,
+      blurb:'Brick storefronts of the 1890s–1920s face the old Vicksburg, Shreveport & Pacific tracks that gave Ruston its start in 1884. Home of the Dixie Center for the Arts and, each June, the Louisiana Peach Festival.' },
+    { name:'Louisiana Tech University', short:'Louisiana Tech', cat:'education', lngLat:[-92.6438, 32.5277], zoom:14.6,
+      blurb:'Founded in 1894 as the Industrial Institute and College of Louisiana; today about 11,000 students. Wyly Tower rises over the Quad, and the Bulldogs play at Joe Aillet Stadium on the north side of campus.' },
+    { name:'Grambling State University', short:'Grambling State', cat:'education', lngLat:[-92.7158, 32.5253], zoom:14.4,
+      blurb:'Historically Black university founded in 1901, four miles west of Ruston. Its Tigers were coached for more than half a century by the legendary Eddie Robinson.' },
+    { name:'Lincoln Parish Park', short:'Lincoln Parish Park', cat:'nature', lngLat:[-92.6402, 32.5969], zoom:14.4,
+      blurb:'Wooded hills around a small lake north of town, with a sandy swim beach and a mountain-bike loop that draws riders from far beyond Louisiana.' },
+    { name:'Lincoln Parish Museum', short:'Parish Museum', cat:'heritage', lngLat:[-92.6368, 32.5293], zoom:15.5,
+      blurb:'A late-1800s home on North Vienna Street kept as a museum of parish history, a short walk north of the courthouse square.' },
+    { name:'Ruston Regional Airport', short:'Ruston Airport', cat:'transport', lngLat:[-92.5880, 32.5146], zoom:13.8,
+      blurb:'The city’s general-aviation field (RSN) on the eastern edge of town, just south of US 80 — the old Dixie Overland Highway.' }
+  ];
+  var lmGeo = { type:'FeatureCollection', features: LANDMARKS.map(function(lm, i){
+    return { type:'Feature', id:i, geometry:{ type:'Point', coordinates:lm.lngLat },
+             properties:{ name:lm.name, short:lm.short, cat:CATS[lm.cat].label,
+                          color:CATS[lm.cat].hex, blurb:lm.blurb } };
+  }) };
+  var regionGeo = { type:'FeatureCollection', features:[
+    { type:'Feature', geometry:{ type:'Point', coordinates:[-92.665, 32.648] },
+      properties:{ t:'T H E   P I N E Y   H I L L S' } }
+  ] };
+
   /* ---------- a hand-tinted, antique style over live OpenStreetMap vector data ---------- */
   var INK = '#3f3322';
   var PAPER = '#efe5cd';
@@ -344,7 +364,9 @@
         tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
       'hillshade-dem': { type:'raster-dem', encoding:'terrarium',
         tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
-      contours: { type:'vector', tiles:[contourTiles], maxzoom:15 }
+      contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
+      landmarks: { type:'geojson', data:lmGeo },
+      regions: { type:'geojson', data:regionGeo }
     },
     layers: [
       { id:'background', type:'background', paint:{ 'background-color': PAPER } },
@@ -510,6 +532,22 @@
           'symbol-spacing':380
         },
         paint:{ 'text-color':'#6d5839', 'text-halo-color':PAPER, 'text-halo-width':1.6 } },
+      { id:'lbl-ref', type:'symbol', source:'openmaptiles', 'source-layer':'transportation_name', minzoom:9.5,
+        filter:['all', ['has','ref'], ['!=',['get','ref'],''],
+                ['in',['get','class'],['literal',['motorway','trunk','primary','secondary']]]],
+        layout:{
+          'symbol-placement':'line', 'symbol-spacing':340,
+          'text-rotation-alignment':'viewport', 'text-pitch-alignment':'viewport',
+          'text-field':['case',
+            ['==',['get','network'],'us-interstate'], ['concat','I-',['get','ref']],
+            ['==',['get','network'],'us-highway'],    ['concat','US ',['get','ref']],
+            ['==',['get','network'],'us-state'],      ['concat','LA ',['get','ref']],
+            ['get','ref']],
+          'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 9.5,9, 14,11.5],
+          'text-letter-spacing':0.04
+        },
+        paint:{ 'text-color':'#5d4630', 'text-halo-color':'#ead9b0', 'text-halo-width':2 } },
       { id:'lbl-water', type:'symbol', source:'openmaptiles', 'source-layer':'water_name',
         layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':11.5 },
         paint:{ 'text-color':'#54776f', 'text-halo-color':PAPER, 'text-halo-width':1.4 } },
@@ -518,8 +556,13 @@
         layout:{ 'symbol-placement':'line', 'text-field':name, 'text-font':['Noto Sans Italic'],
                  'text-size':10.5, 'symbol-spacing':420 },
         paint:{ 'text-color':'#54776f', 'text-halo-color':PAPER, 'text-halo-width':1.4 } },
+      { id:'lbl-poi-major', type:'symbol', source:'openmaptiles', 'source-layer':'poi', minzoom:13.5, maxzoom:15,
+        filter:['all',['has','name'],['<=',['get','rank'],7]],
+        layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':10.5,
+                 'text-max-width':8, 'text-padding':6 },
+        paint:{ 'text-color':'#71603f', 'text-halo-color':PAPER, 'text-halo-width':1.3 } },
       { id:'lbl-poi', type:'symbol', source:'openmaptiles', 'source-layer':'poi', minzoom:15,
-        filter:['all',['has','name'],['<=',['get','rank'],12]],
+        filter:['all',['has','name'],['<=',['get','rank'],14]],
         layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':10.5,
                  'text-max-width':8, 'text-padding':6 },
         paint:{ 'text-color':'#71603f', 'text-halo-color':PAPER, 'text-halo-width':1.3 } },
@@ -540,7 +583,32 @@
           'text-size':['interpolate',['linear'],['zoom'], 9,13, 12,19, 14,24],
           'text-letter-spacing':0.28, 'text-transform':'uppercase'
         },
-        paint:{ 'text-color':'#4a3a26', 'text-halo-color':PAPER, 'text-halo-width':1.8 } }
+        paint:{ 'text-color':'#4a3a26', 'text-halo-color':PAPER, 'text-halo-width':1.8 } },
+
+      /* ---- regional flourish ---- */
+      { id:'lbl-region', type:'symbol', source:'regions', maxzoom:13,
+        layout:{ 'text-field':['get','t'], 'text-font':['Noto Sans Italic'],
+                 'text-size':['interpolate',['linear'],['zoom'], 9,11, 12,15] },
+        paint:{ 'text-color':'#8a7553', 'text-halo-color':PAPER, 'text-halo-width':1.5, 'text-opacity':0.85 } },
+
+      /* ---- curated landmarks: an inked dot with a small annotation beside it ---- */
+      { id:'lm-dot', type:'circle', source:'landmarks',
+        paint:{
+          'circle-radius':['interpolate',['linear'],['zoom'], 10,3.5, 14,6],
+          'circle-color':['get','color'],
+          'circle-stroke-color':INK, 'circle-stroke-width':1.25,
+          'circle-pitch-alignment':'map'
+        } },
+      { id:'lm-label', type:'symbol', source:'landmarks',
+        layout:{
+          'text-field':['get','short'],
+          'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 10,10, 14,12],
+          'text-transform':'uppercase', 'text-letter-spacing':0.08,
+          'text-variable-anchor':['left','right','top','bottom'],
+          'text-radial-offset':0.75, 'text-justify':'auto', 'text-max-width':9
+        },
+        paint:{ 'text-color':INK, 'text-halo-color':'#f6eed9', 'text-halo-width':2 } }
     ]
   };
 
@@ -555,55 +623,36 @@
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
   map.addControl(new maplibregl.ScaleControl({ unit:'imperial', maxWidth:110 }), 'bottom-left');
-  map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-left');
+  if (!isNarrow) map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-left');
 
   map.on('load', function(){
     map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
   });
 
-  /* ---------- landmarks ---------- */
-  var CATS = {
-    heritage:  { label:'Heritage',  color:'var(--c-heritage)',  hex:'#9a3b2e' },
-    education: { label:'Education', color:'var(--c-education)', hex:'#3f5573' },
-    nature:    { label:'Nature',    color:'var(--c-nature)',    hex:'#5c7345' },
-    transport: { label:'Transport', color:'var(--c-transport)', hex:'#8a6f4d' }
-  };
-  var LANDMARKS = [
-    { name:'Downtown & Railroad District', cat:'heritage', lngLat:[-92.6374, 32.5232], zoom:15.2,
-      blurb:'Brick storefronts of the 1890s–1920s face the old Vicksburg, Shreveport & Pacific tracks that gave Ruston its start in 1884. Home of the Dixie Center for the Arts and, each June, the Louisiana Peach Festival.' },
-    { name:'Louisiana Tech University', cat:'education', lngLat:[-92.6438, 32.5277], zoom:14.6,
-      blurb:'Founded in 1894 as the Industrial Institute and College of Louisiana; today about 11,000 students. Wyly Tower rises over the Quad, and the Bulldogs play at Joe Aillet Stadium on the north side of campus.' },
-    { name:'Grambling State University', cat:'education', lngLat:[-92.7158, 32.5253], zoom:14.4,
-      blurb:'Historically Black university founded in 1901, four miles west of Ruston. Its Tigers were coached for more than half a century by the legendary Eddie Robinson.' },
-    { name:'Lincoln Parish Park', cat:'nature', lngLat:[-92.6402, 32.5969], zoom:14.4,
-      blurb:'Wooded hills around a small lake north of town, with a sandy swim beach and a mountain-bike loop that draws riders from far beyond Louisiana.' },
-    { name:'Lincoln Parish Museum', cat:'heritage', lngLat:[-92.6368, 32.5293], zoom:15.5,
-      blurb:'A late-1800s home on North Vienna Street kept as a museum of parish history, a short walk north of the courthouse square.' },
-    { name:'Ruston Regional Airport', cat:'transport', lngLat:[-92.5880, 32.5146], zoom:13.8,
-      blurb:'The city’s general-aviation field (RSN) on the eastern edge of town, just south of US 80 — the old Dixie Overland Highway.' }
-  ];
+  /* ---------- landmark popups & panel list ---------- */
+  var openPopup = null;
+  function showLandmark(props, lngLat){
+    if (openPopup) openPopup.remove();
+    openPopup = new maplibregl.Popup({ offset:12, maxWidth:'260px' })
+      .setLngLat(lngLat)
+      .setHTML('<h3>'+props.name+'</h3><span class="pcat">'+props.cat+'</span><p>'+props.blurb+'</p>')
+      .addTo(map);
+  }
+  map.on('click', function(e){
+    if (!map.getLayer('lm-dot')) return;
+    var hits = map.queryRenderedFeatures(
+      [[e.point.x-6, e.point.y-6],[e.point.x+6, e.point.y+6]], { layers:['lm-dot','lm-label'] });
+    if (hits.length) showLandmark(hits[0].properties, hits[0].geometry.coordinates);
+  });
 
-  var markers = [];
   var listEl = document.getElementById('lm-list');
   LANDMARKS.forEach(function(lm){
-    var el = document.createElement('div');
-    el.className = 'lmk';
-    el.style.setProperty('--c', CATS[lm.cat].hex);
-    el.textContent = lm.name.replace(' & Railroad District','').replace(' University','');
-    var popup = new maplibregl.Popup({ offset:[0,-26], maxWidth:'260px' }).setHTML(
-      '<h3>'+lm.name+'</h3><span class="pcat">'+CATS[lm.cat].label+'</span><p>'+lm.blurb+'</p>'
-    );
-    var mk = new maplibregl.Marker({ element:el, anchor:'bottom', offset:[0,-4] })
-      .setLngLat(lm.lngLat).setPopup(popup).addTo(map);
-    markers.push(mk);
-
     var li = document.createElement('li');
     li.innerHTML = '<span class="dot" style="background:'+CATS[lm.cat].hex+'"></span>'+
                    '<span class="nm">'+lm.name+'</span><span class="cat">'+CATS[lm.cat].label+'</span>';
     li.addEventListener('click', function(){
       map.flyTo({ center:lm.lngLat, zoom:lm.zoom, duration:2200 });
-      markers.forEach(function(m){ if (m.getPopup().isOpen()) m.togglePopup(); });
-      mk.togglePopup();
+      showLandmark({ name:lm.name, cat:CATS[lm.cat].label, blurb:lm.blurb }, lm.lngLat);
     });
     listEl.appendChild(li);
   });
@@ -625,10 +674,11 @@
     });
   });
   document.getElementById('tg-marks').addEventListener('change', function(e){
-    markers.forEach(function(m){
-      m.getElement().style.display = e.target.checked ? '' : 'none';
-      if (!e.target.checked && m.getPopup().isOpen()) m.togglePopup();
+    var v = e.target.checked ? 'visible' : 'none';
+    ['lm-dot','lm-label','lbl-region'].forEach(function(id){
+      map.setLayoutProperty(id, 'visibility', v);
     });
+    if (!e.target.checked && openPopup) { openPopup.remove(); openPopup = null; }
   });
   document.getElementById('btn-reset').addEventListener('click', function(){
     map.flyTo({ center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch, bearing:HOME.bearing, duration:2200 });
@@ -640,9 +690,12 @@
   map.on('rotate', turnRose); turnRose();
   rose.addEventListener('click', function(){ map.resetNorth({ duration:800 }); });
 
-  /* live elevation readout (true feet — exaggeration divided back out) */
+  /* live elevation readout (true feet — exaggeration divided back out) + landmark cursor */
   var readout = document.getElementById('elev-readout');
   map.on('mousemove', function(e){
+    if (!map.getLayer('lm-dot')) return;
+    var hits = map.queryRenderedFeatures(e.point, { layers:['lm-dot','lm-label'] });
+    map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
     if (!map.getTerrain()) { readout.style.display = 'none'; return; }
     var z = map.queryTerrainElevation(e.lngLat);
     if (z == null) { readout.style.display = 'none'; return; }
