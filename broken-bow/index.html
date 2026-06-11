@@ -6,6 +6,7 @@
 <title>Broken Bow &amp; Beavers Bend — A Living Chart</title>
 <meta name="description" content="An interactive terrain map of Broken Bow, Hochatown, Broken Bow Lake and Beavers Bend State Park, Oklahoma — hiking trails, offroad country and points of interest in two switchable editions.">
 <link rel="stylesheet" href="../vendor/maplibre-gl.css">
+<link rel="manifest" href="../manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -523,6 +524,10 @@
     </div>
     <button class="btn" id="btn-reset">Return to the full prospect</button>
     <button class="btn" id="btn-poster">Export a poster&hellip;</button>
+    <button class="btn" id="btn-gpx">Add a GPX route&hellip;</button>
+    <input type="file" id="gpx-file" accept=".gpx,application/gpx+xml" style="display:none">
+    <button class="btn" id="btn-offline">Save this area for offline</button>
+    <p class="hint" id="off-status" style="margin:6px 0 0"></p>
     <div id="warn">The street survey could not be reached &mdash; the terrain is drawn, but roads and water may be
     missing. Check your connection and reload.</div>
 
@@ -832,6 +837,18 @@
              geometry:{ type:'MultiLineString', coordinates:t.parts },
              properties:{ i:i, name:t.name, type:t.type } };
   }) };
+  var GPX_KEY = 'atlas-gpx-' + ((window.location && window.location.pathname) || 'page');
+  var IMPORTED = [];
+  try { IMPORTED = JSON.parse(localStorage.getItem(GPX_KEY) || '[]'); } catch (err) {}
+  function gpxFC(){
+    return { type:'FeatureCollection', features: IMPORTED.map(function(t, i){
+      return { type:'Feature', id:i,
+               geometry:{ type:'MultiLineString', coordinates:t.parts },
+               properties:{ gi:i, name:t.name } };
+    }) };
+  }
+  var gpxGeo = gpxFC();
+
   TRAILS.forEach(function(t){
     var w = 180, e = -180, sN = -90, n = 90;
     t.parts.forEach(function(part){ part.forEach(function(p){
@@ -977,6 +994,7 @@
     var P = PALETTES[themeName];
     var CSRC = P.denseContours ? 'contours-dense' : 'contours';
     var TRAILC = P.cats.hiking || P.cats.nature || '#4f6e3c';
+    var GPXC = THEME_UI[themeName].indexOf('mode-dark') !== -1 ? '#f472b6' : '#b13b6e';
     var layers = [
       { id:'background', type:'background', paint:{ 'background-color':P.bg } },
 
@@ -1114,6 +1132,14 @@
         layout:{ 'line-cap':'round', 'line-join':'round' },
         paint:{ 'line-color':TRAILC, 'line-dasharray':[2.4, 1.3],
           'line-width':['interpolate',['linear'],['zoom'], 10,1.5, 13,2.6, 16,4.5] } },
+      { id:'gpx-case', type:'line', source:'gpx',
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':P.bg, 'line-opacity':0.75,
+          'line-width':['interpolate',['linear'],['zoom'], 10,3.5, 13,6, 16,10] } },
+      { id:'gpx-line', type:'line', source:'gpx',
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':GPXC,
+          'line-width':['interpolate',['linear'],['zoom'], 10,1.8, 13,3, 16,5] } },
 
       { id:'bdy-parish', type:'line', source:'openmaptiles', 'source-layer':'boundary',
         filter:['all',['==',['get','admin_level'],6],['!=',['get','maritime'],1]],
@@ -1262,7 +1288,8 @@
         'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
         landmarks: { type:'geojson', data:lmGeo },
         regions: { type:'geojson', data:regionGeo },
-        trails: { type:'geojson', data:trailsGeo }
+        trails: { type:'geojson', data:trailsGeo },
+        gpx: { type:'geojson', data:gpxGeo }
       },
       layers: layers
     };
@@ -1288,6 +1315,12 @@
       '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &middot; Terrain: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Mapzen/AWS</a> (USGS, SRTM)' }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+  try {
+    map.addControl(new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: true, showUserHeading: true
+    }), 'top-right');
+  } catch (err) {}
   map.addControl(new maplibregl.ScaleControl({ unit:'imperial', maxWidth:110 }), 'bottom-left');
   if (!isNarrow) map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-left');
 
@@ -1362,7 +1395,7 @@
 
   /* ---------- runtime state re-applied after load & after every theme swap ---------- */
   var LM_LAYERS = ['lm-glow','lm2-glow','lm-dot','lm-label','lm2-dot','lm2-label','lbl-region'];
-  var TR_LAYERS = ['trail-case','trail-line'];
+  var TR_LAYERS = ['trail-case','trail-line','gpx-case','gpx-line'];
   function applyRuntime(){
     styleReady = true;
     try {
@@ -1432,6 +1465,11 @@
       [[e.point.x-6, e.point.y-6],[e.point.x+6, e.point.y+6]],
       { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
     if (hits.length) { showLandmark(hits[0].properties, hits[0].geometry.coordinates); return; }
+    if (map.getLayer('gpx-line')) {
+      var gh = map.queryRenderedFeatures(
+        [[e.point.x-7, e.point.y-7],[e.point.x+7, e.point.y+7]], { layers:['gpx-line'] });
+      if (gh.length) { openTrail(IMPORTED[+gh[0].properties.gi]); return; }
+    }
     if (map.getLayer('trail-line')) {
       var th = map.queryRenderedFeatures(
         [[e.point.x-7, e.point.y-7],[e.point.x+7, e.point.y+7]], { layers:['trail-line','trail-case'] });
@@ -1502,7 +1540,7 @@
     tcSvg.style.color = 'var(--accent)';
   }
   function openTrail(i){
-    var t = TRAILS[i];
+    var t = (typeof i === 'object' && i) ? i : TRAILS[i];
     if (!t) return;
     curTrail = t;
     tcName.textContent = t.name;
@@ -1558,6 +1596,214 @@
       if (profOn) { profMarker.remove(); profOn = false; }
       curTrail = null;
     }
+  });
+
+  /* ---------- GPX import ---------- */
+  function havM(a, b){
+    var R = 6371000, la1 = a[1]*Math.PI/180, la2 = b[1]*Math.PI/180;
+    var h = Math.sin((la2-la1)/2); h = h*h +
+      Math.cos(la1)*Math.cos(la2)*Math.pow(Math.sin((b[0]-a[0])*Math.PI/360), 2);
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function parseGPX(text, fallbackName){
+    var doc;
+    try { doc = new DOMParser().parseFromString(text, 'application/xml'); } catch (err) { return null; }
+    if (!doc || doc.querySelector('parsererror')) return null;
+    var segs = doc.querySelectorAll('trkseg');
+    var ptsets = [];
+    if (segs.length) {
+      for (var si = 0; si < segs.length; si++) {
+        var pts = segs[si].querySelectorAll('trkpt');
+        if (pts.length > 1) ptsets.push(pts);
+      }
+    }
+    if (!ptsets.length) {
+      var rpts = doc.querySelectorAll('rtept');
+      if (rpts.length > 1) ptsets.push(rpts);
+    }
+    if (!ptsets.length) return null;
+    var nameEl = doc.querySelector('trk > name') || doc.querySelector('metadata > name');
+    var name = (nameEl && nameEl.textContent.trim()) || fallbackName;
+    var parts = [], samples = [], dist = 0, prev = null;
+    ptsets.forEach(function(pts){
+      var part = [];
+      for (var i = 0; i < pts.length; i++) {
+        var lon = +pts[i].getAttribute('lon'), lat = +pts[i].getAttribute('lat');
+        if (!isFinite(lon) || !isFinite(lat)) continue;
+        var p = [Math.round(lon*1e5)/1e5, Math.round(lat*1e5)/1e5];
+        if (prev) dist += havM(prev, p);
+        prev = p;
+        part.push(p);
+        var eEl = pts[i].querySelector('ele');
+        samples.push([dist, eEl ? +eEl.textContent : null, p[0], p[1]]);
+      }
+      if (part.length > 1) parts.push(part);
+    });
+    if (!parts.length) return null;
+    var hasEle = samples.some(function(s){ return s[1] != null && isFinite(s[1]); });
+    var profile = null, gain = 0, lo = 0, hi = 0;
+    if (hasEle) {
+      var es = samples.filter(function(sm){ return sm[1] != null && isFinite(sm[1]); });
+      var prevE = es[0][1];
+      lo = hi = es[0][1];
+      es.forEach(function(sm){
+        if (sm[1] > prevE) gain += sm[1] - prevE;
+        prevE = sm[1];
+        if (sm[1] < lo) lo = sm[1];
+        if (sm[1] > hi) hi = sm[1];
+      });
+      var N = Math.min(140, es.length);
+      profile = [];
+      for (var k = 0; k < N; k++) {
+        var sm2 = es[Math.round(k*(es.length-1)/(N-1))];
+        profile.push([Math.round(sm2[0]/1609.34*1000)/1000, Math.round(sm2[1]*3.28084),
+                      sm2[2], sm2[3]]);
+      }
+    }
+    var w2 = 180, e2 = -180, s2 = 90, n2 = -90;
+    parts.forEach(function(part){ part.forEach(function(p){
+      if (p[0] < w2) w2 = p[0]; if (p[0] > e2) e2 = p[0];
+      if (p[1] < s2) s2 = p[1]; if (p[1] > n2) n2 = p[1];
+    }); });
+    return {
+      name: name, type: 'gpx',
+      lenMi: Math.round(dist/1609.34*100)/100,
+      gainFt: hasEle ? Math.round(gain*3.28084/10)*10 : 0,
+      hiFt: Math.round(hi*3.28084), loFt: Math.round(lo*3.28084),
+      parts: parts, profile: profile, bounds: [[w2, s2], [e2, n2]]
+    };
+  }
+  function refreshGpx(){
+    gpxGeo = gpxFC();
+    var src = map.getSource('gpx');
+    if (src) src.setData(gpxGeo);
+    try {
+      var js = JSON.stringify(IMPORTED);
+      if (js.length < 900000) localStorage.setItem(GPX_KEY, js);
+    } catch (err) {}
+    rebuildGpxList();
+  }
+  function rebuildGpxList(){
+    var olds = trailListEl.querySelectorAll('li.gpx-li');
+    for (var i = 0; i < olds.length; i++) olds[i].remove();
+    IMPORTED.forEach(function(t, i){
+      var li = document.createElement('li');
+      li.className = 'gpx-li';
+      li.innerHTML = '<span class="tnm">' + t.name + ' <small style="opacity:.65">(yours)</small></span>' +
+        '<span class="tst">' + t.lenMi + ' mi' +
+        (t.gainFt ? ' \u00b7 +' + t.gainFt.toLocaleString() + ' ft' : '') + '</span>' +
+        '<span class="tst" data-rm="' + i + '" style="cursor:pointer;padding:0 4px">&times;</span>';
+      li.addEventListener('click', function(ev){
+        if (ev.target.getAttribute && ev.target.getAttribute('data-rm') != null) {
+          IMPORTED.splice(i, 1); refreshGpx(); return;
+        }
+        map.fitBounds(t.bounds, { padding:70, duration:1600, maxZoom:15 });
+        if (t.profile) openTrail(t); else { tcEl.style.display = 'none'; }
+      });
+      trailListEl.appendChild(li);
+      document.getElementById('trails-sec').style.display = '';
+    });
+  }
+  function importGPXText(text, fname){
+    var t = parseGPX(text, (fname || 'Imported route').replace(/\.gpx$/i, ''));
+    if (!t) { document.getElementById('off-status').textContent = 'That file did not look like a GPX track.'; return; }
+    IMPORTED.push(t);
+    refreshGpx();
+    map.fitBounds(t.bounds, { padding:70, duration:1600, maxZoom:15 });
+    if (t.profile) openTrail(t);
+  }
+  var gpxInput = document.getElementById('gpx-file');
+  document.getElementById('btn-gpx').addEventListener('click', function(){ gpxInput.click(); });
+  gpxInput.addEventListener('change', function(){
+    var f = gpxInput.files && gpxInput.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function(){ importGPXText(rd.result, f.name); };
+    rd.readAsText(f);
+    gpxInput.value = '';
+  });
+  var mapEl = document.getElementById('map');
+  mapEl.addEventListener('dragover', function(e){ e.preventDefault(); });
+  mapEl.addEventListener('drop', function(e){
+    e.preventDefault();
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (!f || !/\.gpx$/i.test(f.name)) return;
+    var rd = new FileReader();
+    rd.onload = function(){ importGPXText(rd.result, f.name); };
+    rd.readAsText(f);
+  });
+  rebuildGpxList();
+
+  /* ---------- offline: register the service worker & area saver ---------- */
+  var offStatus = document.getElementById('off-status');
+  var canOffline = (typeof navigator !== 'undefined' && 'serviceWorker' in navigator &&
+                    typeof caches !== 'undefined');
+  if (canOffline) {
+    navigator.serviceWorker.register('../sw.js').catch(function(){ canOffline = false; });
+  } else {
+    document.getElementById('btn-offline').style.display = 'none';
+  }
+  function tileList(b, z){
+    function tx(lon){ return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+    function ty(lat){
+      var r = lat * Math.PI / 180;
+      return Math.floor((1 - Math.asinh(Math.tan(r)) / Math.PI) / 2 * Math.pow(2, z));
+    }
+    var out = [];
+    var x0 = tx(b.getWest()), x1 = tx(b.getEast());
+    var y0 = ty(b.getNorth()), y1 = ty(b.getSouth());
+    for (var x = x0; x <= x1; x++) for (var y = y0; y <= y1; y++) out.push([z, x, y]);
+    return out;
+  }
+  document.getElementById('btn-offline').addEventListener('click', function(){
+    if (!canOffline) { offStatus.textContent = 'Offline saving is not available in this browser.'; return; }
+    var b = map.getBounds();
+    var zNow = Math.max(9, Math.min(13, Math.floor(map.getZoom())));
+    var zs = [], total = 0;
+    for (var z = 9; z <= Math.min(zNow + 2, 14); z++) zs.push(z);
+    var lists = zs.map(function(z){ return tileList(b, z); });
+    while (lists.length > 1 && lists.reduce(function(a, l){ return a + l.length; }, 0) > 1400) lists.pop();
+    var tiles = [];
+    lists.forEach(function(l){ tiles = tiles.concat(l); });
+    offStatus.textContent = 'Fetching the street survey index\u2026';
+    fetch('https://tiles.openfreemap.org/planet').then(function(r){ return r.json(); })
+      .then(function(tj){
+        var vec = tj.tiles[0];
+        var urls = [];
+        tiles.forEach(function(t){
+          urls.push(vec.replace('{z}', t[0]).replace('{x}', t[1]).replace('{y}', t[2]));
+          if (t[0] <= 13) urls.push('https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' +
+            t[0] + '/' + t[1] + '/' + t[2] + '.png');
+        });
+        ['Noto Sans Regular','Noto Sans Bold','Noto Sans Italic'].forEach(function(f){
+          urls.push('https://tiles.openfreemap.org/fonts/' + encodeURIComponent(f) + '/0-255.pbf');
+        });
+        var done = 0, failed = 0;
+        return caches.open('atlas-tiles').then(function(cache){
+          function chunk(i){
+            if (i >= urls.length) {
+              offStatus.textContent = 'Saved ' + (done) + ' tiles for offline use' +
+                (failed ? ' (' + failed + ' failed)' : '') + '. This view now works without signal.';
+              return;
+            }
+            var batch = urls.slice(i, i + 8).map(function(u){
+              return cache.match(u).then(function(m){
+                if (m) { done++; return; }
+                return fetch(u, { mode:'cors' }).then(function(r){
+                  if (r.ok || r.type === 'opaque') { done++; return cache.put(u, r); }
+                  failed++;
+                }).catch(function(){ failed++; });
+              });
+            });
+            Promise.all(batch).then(function(){
+              offStatus.textContent = 'Saving\u2026 ' + Math.round(100 * (done + failed) / urls.length) + '%';
+              chunk(i + 8);
+            });
+          }
+          chunk(0);
+        });
+      })
+      .catch(function(){ offStatus.textContent = 'Could not reach the tile service to save.'; });
   });
 
   /* ---------- toggles & reset ---------- */

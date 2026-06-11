@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Atlas</title>
 <meta name="description" content="A collection of living charts — interactive terrain maps in five switchable editions (antique, midnight, hydro, relief, topo), drawn from public data.">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -253,6 +254,9 @@
   THEME_NAMES.forEach(function(n){
     document.getElementById('ed-' + n).addEventListener('click', function(){ setTheme(n); });
   });
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  }
 })();
 </script>
 </body>
