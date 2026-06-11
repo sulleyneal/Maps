@@ -7,6 +7,7 @@ the table of contents.
 | Map | Path |
 |---|---|
 | **Ruston, Louisiana** — one page, two switchable editions: an antique parchment chart and a modern "Midnight" dark map. 3-D relief, contours, hatched railroads, and 20 verified landmarks across the piney hills of Lincoln Parish. Open with `?theme=antique` or `?theme=midnight`; switch live in the map. | [`ruston/`](ruston/) |
+| **Broken Bow & Beavers Bend, Oklahoma** — same two-edition chart for the Broken Bow Lake country: Beavers Bend State Park, Hochatown, hiking trails (Boren network, Skyline, Friends), offroad country in the Ouachita National Forest, trout water below the dam, and 26 verified points of interest. | [`broken-bow/`](broken-bow/) |
 
 ## Viewing
 
