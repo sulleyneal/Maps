@@ -1599,7 +1599,7 @@
     document.getElementById('po-sub').value =
       document.querySelector('#panel .eyebrow').textContent.replace(/\s+/g, ' ').trim();
     document.getElementById('po-ct').checked = document.getElementById('tg-contours').checked;
-    poStatus.textContent = '';
+    poStatus.textContent = 'Export engine v3 ready.';
     poVeil.style.display = 'flex';
   });
   document.getElementById('po-cancel').addEventListener('click', function(){
@@ -1664,17 +1664,29 @@
       });
     } catch (err) { return fail('Could not start the render \u2014 this device may be out of memory.'); }
     poStatus.textContent = 'Engraving at print resolution\u2026';
-    watchdog = setTimeout(function(){ compose(); }, 45000);
-    pmap.once('idle', function(){ setTimeout(compose, 300); });
-
-    function compose(){
+    pmap.on('error', function(ev){
+      if (ev && ev.error) poStatus.textContent =
+        'Engraving\u2026 (an issue while loading: ' + (ev.error.message || 'tile error') + ')';
+    });
+    function grab(){
       if (done) return;
       done = true;
       clearTimeout(watchdog);
-      var snap = document.createElement('canvas');
       var glc = pmap.getCanvas();
+      var snap = document.createElement('canvas');
       snap.width = glc.width; snap.height = glc.height;
       snap.getContext('2d').drawImage(glc, 0, 0);
+      var drawn = -1;
+      try { drawn = pmap.queryRenderedFeatures().length; } catch (err) {}
+      compose(snap, drawn);
+    }
+    watchdog = setTimeout(grab, 45000);
+    pmap.once('idle', function(){
+      pmap.once('render', grab);   /* capture in the same frame it paints */
+      pmap.triggerRepaint();
+    });
+
+    function compose(snap, drawn){
       (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function(){
         try {
           var c = document.createElement('canvas');
@@ -1741,7 +1753,9 @@
                          '-' + theme + '-poster.png';
             document.body.appendChild(a); a.click(); a.remove();
             setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
-            poStatus.textContent = 'Done \u2014 check your downloads.';
+            poStatus.textContent = drawn === 0
+              ? 'Saved \u2014 but the map rendered empty. Fully reload the page (the script may be cached) and try again.'
+              : 'Done \u2014 check your downloads.';
           }, 'image/png');
         } catch (err) {
           fail('Render failed \u2014 try a smaller size. (' + err.message + ')');
