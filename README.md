@@ -1,8 +1,10 @@
 # The Atlas
 
 A small collection of interactive, antique-styled maps drawn from live, publicly
-available data. Each map lives in its own directory; `index.html` at the root is
-the table of contents.
+available data. Each map lives in its own directory; `index.html` at the root is the home page —
+a themed gallery with terrain thumbnails (in `assets/`), where every chart opens
+in either the antique or midnight edition. To add a map, add an entry to the
+`MAPS` list in the home page and drop two thumbnails in `assets/`.
 
 | Map | Path |
 |---|---|

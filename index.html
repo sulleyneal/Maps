@@ -4,83 +4,218 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Atlas</title>
-<meta name="description" content="A small collection of living charts — interactive, antique-styled maps drawn from public data.">
+<meta name="description" content="A collection of living charts — interactive terrain maps in switchable antique and midnight editions, drawn from public data.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --paper:#efe5cd; --card:#f4ecd8; --ink:#3f3322; --ink-soft:#6d5c41; --rule:#b9a47e; --accent:#9a3b2e; }
-  *{ box-sizing:border-box }
-  html,body{ height:100%; margin:0 }
-  body{
-    display:flex; align-items:center; justify-content:center; padding:28px 18px;
-    background:
-      radial-gradient(ellipse at 50% 0%, rgba(255,252,238,.7), rgba(255,252,238,0) 65%),
-      var(--paper);
-    color:var(--ink); font-family:'EB Garamond', Georgia, serif;
+  body.theme-antique{
+    --bg:#e7dabb; --card:#f4ecd8; --line:#a78d63; --rule:#b9a47e;
+    --ink:#3f3322; --ink-soft:#6d5c41; --ink-faint:#8a7a5c; --accent:#9a3b2e;
+    --font-display:'IM Fell English',serif; --font-body:'EB Garamond',Georgia,serif;
+    --radius:2px; --chip:rgba(154,59,46,.07); --hover-shadow:0 8px 30px rgba(70,50,20,.4);
+    --card-shadow:0 4px 18px rgba(70,50,20,.28);
   }
-  body::after{
+  body.theme-midnight{
+    --bg:#0b0d10; --card:rgba(17,20,26,.85); --line:rgba(255,255,255,.09); --rule:rgba(255,255,255,.1);
+    --ink:#e5eaf0; --ink-soft:#8b97a5; --ink-faint:#5c6877; --accent:#38bdf8;
+    --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',system-ui,sans-serif;
+    --radius:18px; --chip:rgba(255,255,255,.06); --hover-shadow:0 18px 50px rgba(0,0,0,.6);
+    --card-shadow:0 10px 36px rgba(0,0,0,.45);
+  }
+  *{ box-sizing:border-box }
+  html{ height:100% }
+  body{
+    min-height:100%; margin:0; padding:34px 20px 50px;
+    background:var(--bg); color:var(--ink); font-family:var(--font-body);
+  }
+  body.theme-antique::after{
     content:""; position:fixed; inset:0; pointer-events:none; mix-blend-mode:multiply; opacity:.5;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='matrix' values='0 0 0 0 0.45 0 0 0 0 0.38 0 0 0 0 0.26 0 0 0 0.05 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
     box-shadow:inset 0 0 130px rgba(82,60,28,.3);
   }
-  main{
-    width:100%; max-width:480px; background:var(--card);
-    border:1px solid var(--rule); outline:1px solid var(--rule); outline-offset:4px;
-    box-shadow:0 6px 26px rgba(70,50,20,.3); padding:38px 30px 26px; text-align:center;
+  body.theme-midnight{
+    background:radial-gradient(ellipse at 50% -10%, #131a22, var(--bg) 60%);
   }
+
+  header{ max-width:1060px; margin:0 auto 30px; text-align:center; position:relative; }
   .eyebrow{ font-size:11px; letter-spacing:.32em; text-transform:uppercase; color:var(--accent); margin:0 0 12px; }
-  h1{ font-family:'IM Fell English',serif; font-weight:400; font-size:44px; letter-spacing:.14em; margin:0; line-height:1; }
-  .tagline{ font-style:italic; color:var(--ink-soft); font-size:15px; margin:12px 0 0; line-height:1.5; }
-  .flourish{ color:var(--rule); font-size:15px; margin:18px 0; letter-spacing:.6em; }
-  ul{ list-style:none; margin:0; padding:0; text-align:left; }
-  li + li{ margin-top:12px; }
-  a.chart{
-    display:block; text-decoration:none; color:var(--ink);
-    border:1px solid #8a6f4d; border-left:5px solid var(--accent);
-    background:rgba(246,238,217,.9); padding:14px 16px 12px;
-    box-shadow:0 2px 5px rgba(60,40,10,.25); transition:background .15s;
+  body.theme-midnight .eyebrow{ font-weight:600; letter-spacing:.2em; }
+  h1{ font-family:var(--font-display); font-weight:400; font-size:54px; letter-spacing:.14em; margin:0; line-height:1; }
+  body.theme-midnight h1{
+    font-weight:700; letter-spacing:-.01em; font-size:50px;
+    background:linear-gradient(92deg,#7dd3fc 0%,#38bdf8 45%,#34d399 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
   }
-  a.chart:hover{ background:#fdf7e4; }
-  a.chart .nm{
-    font-weight:600; font-size:17px; letter-spacing:.1em; text-transform:uppercase; display:block;
+  .tagline{ font-style:italic; color:var(--ink-soft); font-size:15.5px; margin:12px 0 0; line-height:1.5; }
+  body.theme-midnight .tagline{ font-style:normal; font-size:14px; }
+  .flourish{ color:var(--rule); font-size:15px; margin:16px 0 0; letter-spacing:.6em; }
+  body.theme-midnight .flourish{ display:none; }
+
+  /* theme pill */
+  #edition{
+    display:inline-flex; margin-top:20px; padding:3px;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--card-shadow);
   }
-  a.chart .ds{ font-style:italic; font-size:13.5px; color:var(--ink-soft); display:block; margin-top:3px; line-height:1.45; }
-  .credits{ margin-top:26px; font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
-  .credits a{ color:var(--accent); }
+  body.theme-midnight #edition{ border-radius:999px; }
+  #edition button{
+    font:600 10.5px var(--font-body); letter-spacing:.16em; text-transform:uppercase;
+    padding:7px 14px; border:none; background:none; color:var(--ink-soft); cursor:pointer;
+    border-radius:inherit; white-space:nowrap;
+  }
+  body.theme-midnight #edition button{ border-radius:999px; font-size:11px; letter-spacing:.1em; }
+  #edition button.on{ color:#f4ecd8; background:var(--accent); cursor:default; }
+  body.theme-midnight #edition button.on{ color:#0b0d10; background:linear-gradient(92deg,#7dd3fc,#34d399); }
+  #edition button:not(.on):hover{ color:var(--ink); }
+
+  /* gallery */
+  #gallery{
+    max-width:1060px; margin:0 auto; display:grid; gap:26px;
+    grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+  }
+  .map-card{
+    display:flex; flex-direction:column; text-decoration:none; color:var(--ink);
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; box-shadow:var(--card-shadow);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  body.theme-midnight .map-card{ -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+  .map-card:hover{ transform:translateY(-4px); box-shadow:var(--hover-shadow); }
+  .thumb-wrap{ position:relative; aspect-ratio:34/22; overflow:hidden;
+    border-bottom:1px solid var(--line); background:#777; }
+  .thumb-wrap img{ width:100%; height:100%; object-fit:cover; display:block;
+    transition:transform .4s ease; }
+  .map-card:hover .thumb-wrap img{ transform:scale(1.04); }
+  .thumb-wrap .region-tag{
+    position:absolute; left:10px; bottom:10px; font-size:10px; font-weight:600;
+    letter-spacing:.16em; text-transform:uppercase; color:#f4ecd8;
+    background:rgba(40,30,15,.65); padding:4px 9px 3px; border-radius:999px;
+    -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+  }
+  .card-body{ padding:16px 18px 15px; display:flex; flex-direction:column; gap:8px; flex:1; }
+  .card-body h2{
+    font-family:var(--font-display); font-weight:400; font-size:23px; margin:0;
+    letter-spacing:.04em; line-height:1.15;
+  }
+  body.theme-midnight .card-body h2{ font-weight:600; font-size:19px; letter-spacing:0; }
+  .card-body .desc{ font-size:13.5px; line-height:1.55; color:var(--ink-soft); margin:0; flex:1; }
+  body.theme-midnight .card-body .desc{ font-size:12.5px; }
+  .tags{ display:flex; flex-wrap:wrap; gap:6px; }
+  .tags span{
+    font-size:10px; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-soft); background:var(--chip); border:1px solid var(--line);
+    padding:3px 9px 2px; border-radius:999px;
+  }
+  .card-foot{
+    display:flex; align-items:center; justify-content:space-between;
+    border-top:1px dotted var(--rule); padding-top:10px; margin-top:2px;
+  }
+  .card-foot .open{
+    font-size:11.5px; font-weight:600; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--accent);
+  }
+  .card-foot .added{ font-size:11px; color:var(--ink-faint); font-style:italic; }
+  body.theme-midnight .card-foot .added{ font-style:normal; }
+
+  footer{
+    max-width:1060px; margin:40px auto 0; text-align:center;
+    font-size:11.5px; line-height:1.7; color:var(--ink-soft);
+  }
+  footer a{ color:var(--accent); }
+  @media (max-width:420px){ h1{ font-size:40px } body.theme-midnight h1{ font-size:36px } }
 </style>
 </head>
-<body>
-<main>
+<body class="theme-antique">
+
+<header>
   <p class="eyebrow">A Cabinet of Curious Cartography</p>
   <h1>THE ATLAS</h1>
   <p class="tagline">Living charts drawn from open surveys &amp; public elevations,<br>one place at a time</p>
   <div class="flourish">&#10087;</div>
-  <ul>
-    <li>
-      <a class="chart" href="ruston/?theme=antique">
-        <span class="nm">Ruston, Louisiana</span>
-        <span class="ds">The piney hills of Lincoln Parish &mdash; a railroad town of 1884, its universities, peaches &amp; contours. Antique &amp; midnight editions in one chart &mdash; switch in the map.</span>
-      </a>
-    </li>
-    <li>
-      <a class="chart" href="broken-bow/" style="border-left-color:#4f6e3c">
-        <span class="nm">Broken Bow &amp; Beavers Bend, Oklahoma</span>
-        <span class="ds">Lake, river &amp; the Ouachita foothills &mdash; hiking trails, offroad country, trout water &amp; the Hochatown strip</span>
-      </a>
-    </li>
-    <li>
-      <a class="chart" href="ruston/?theme=midnight" style="border-left-color:#2c7a8c">
-        <span class="nm">Ruston &mdash; open in Midnight</span>
-        <span class="ds">The same chart, opened in its modern dress: dark glass, glowing landmarks, amber highways</span>
-      </a>
-    </li>
-  </ul>
-  <p class="credits">
-    Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors,
-    <a href="https://openfreemap.org">OpenFreeMap</a> &amp; USGS / SRTM elevations.<br>
-    Drawn with MapLibre GL.
-  </p>
-</main>
+  <nav id="edition" aria-label="Edition">
+    <button id="ed-antique" class="on">Antique</button>
+    <button id="ed-midnight">Midnight</button>
+  </nav>
+</header>
+
+<main id="gallery"></main>
+
+<footer>
+  Streets &amp; names © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors via
+  <a href="https://openfreemap.org">OpenFreeMap</a> &middot; Elevations from USGS&nbsp;3DEP &amp; SRTM via
+  <a href="https://registry.opendata.aws/terrain-tiles/">Terrain Tiles on AWS</a> &middot; Landmarks verified with
+  <a href="https://overturemaps.org">Overture Maps</a><br>
+  Every chart opens in either edition &mdash; switch up top, or inside the map itself.
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---- the shelf: add a new map by adding an entry here ---- */
+  var MAPS = [
+    {
+      slug:'ruston',
+      title:'Ruston, Louisiana',
+      region:'Lincoln Parish · Louisiana',
+      desc:'A railroad town of 1884 in the piney hills — Louisiana Tech, Grambling State, the Peach Festival blocks downtown, and 20 storied landmarks among gentle contours.',
+      tags:['3-D Terrain','Contours','20 Landmarks'],
+      added:'June 2026'
+    },
+    {
+      slug:'broken-bow',
+      title:'Broken Bow & Beavers Bend, Oklahoma',
+      region:'McCurtain County · Oklahoma',
+      desc:'Clear water and real relief at the foot of the Ouachitas — Beavers Bend trails, the Hochatown strip, UTV country in the national forest, and cold trout water below the dam.',
+      tags:['Hiking','Offroad','Lake & River','26 Landmarks'],
+      added:'June 2026'
+    }
+  ];
+
+  var theme = 'antique';
+  try {
+    var saved = localStorage.getItem('atlas-theme');
+    if (saved === 'midnight' || saved === 'antique') theme = saved;
+  } catch (err) {}
+
+  var gallery = document.getElementById('gallery');
+  MAPS.forEach(function(m){
+    var a = document.createElement('a');
+    a.className = 'map-card';
+    a.id = 'card-' + m.slug;
+    a.innerHTML =
+      '<div class="thumb-wrap"><img alt="Terrain of ' + m.title + '" loading="lazy" ' +
+        'src="assets/' + m.slug + '-' + theme + '.jpg"><span class="region-tag">' + m.region + '</span></div>' +
+      '<div class="card-body"><h2>' + m.title + '</h2>' +
+      '<p class="desc">' + m.desc + '</p>' +
+      '<div class="tags">' + m.tags.map(function(t){ return '<span>' + t + '</span>'; }).join('') + '</div>' +
+      '<div class="card-foot"><span class="open">Open the chart &rarr;</span>' +
+      '<span class="added">' + m.added + '</span></div></div>';
+    gallery.appendChild(a);
+  });
+
+  function applyTheme(){
+    document.body.className = 'theme-' + theme;
+    document.getElementById('ed-antique').className = theme === 'antique' ? 'on' : '';
+    document.getElementById('ed-midnight').className = theme === 'midnight' ? 'on' : '';
+    MAPS.forEach(function(m){
+      var card = document.getElementById('card-' + m.slug);
+      card.href = m.slug + '/?theme=' + theme;
+      card.querySelector('img').src = 'assets/' + m.slug + '-' + theme + '.jpg';
+    });
+  }
+  applyTheme();
+
+  function setTheme(name){
+    if (name === theme) return;
+    theme = name;
+    try { localStorage.setItem('atlas-theme', name); } catch (err) {}
+    applyTheme();
+  }
+  document.getElementById('ed-antique').addEventListener('click', function(){ setTheme('antique'); });
+  document.getElementById('ed-midnight').addEventListener('click', function(){ setTheme('midnight'); });
+})();
+</script>
 </body>
 </html>
