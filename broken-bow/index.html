@@ -263,6 +263,39 @@
   #cartouche .t1{ font-family:var(--font-display); font-size:13px; letter-spacing:.18em; }
   #cartouche .t2{ font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft); margin-top:2px; }
 
+  /* trail profile card */
+  #trail-card{
+    position:absolute; z-index:5; left:12px; bottom:46px; width:344px; max-width:calc(100vw - 24px);
+    background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:var(--panel-radius);
+    box-shadow:var(--panel-shadow); padding:14px 16px 12px; display:none;
+  }
+  body.ui-modern #trail-card{ -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  #trail-card h3{ margin:0 24px 2px 0; font-family:var(--font-display); font-size:17px;
+    font-weight:600; letter-spacing:.02em; }
+  #tc-close{ position:absolute; top:8px; right:10px; border:none; background:none;
+    color:var(--ink-soft); font-size:18px; cursor:pointer; line-height:1; padding:4px; }
+  #tc-stats{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
+  #tc-stats b{ color:var(--ink); font-weight:600; }
+  #tc-stats .chip{ display:inline-block; font-size:9.5px; font-weight:600; letter-spacing:.12em;
+    text-transform:uppercase; border:1px solid var(--panel-border); border-radius:999px;
+    padding:2px 8px 1px; margin-left:6px; color:var(--accent); }
+  #tc-svg{ display:block; width:100%; height:92px; cursor:crosshair; }
+  #tc-hover{ font-size:11px; color:var(--ink-soft); min-height:14px; margin-top:4px;
+    font-variant-numeric:tabular-nums; }
+  .prof-dot{ width:12px; height:12px; border-radius:50%; background:var(--accent);
+    border:2px solid #fff; box-shadow:0 0 6px rgba(0,0,0,.5); }
+  .trail-list{ list-style:none; margin:0; padding:0; font-size:13.5px; }
+  .trail-list li{ display:flex; align-items:baseline; gap:8px; padding:6px 4px; cursor:pointer;
+    border-bottom:1px dotted var(--rule); }
+  body.ui-modern .trail-list li{ border-bottom:none; border-radius:12px; padding:7px 10px; font-size:12.5px; }
+  .trail-list li:hover{ background:var(--hover); }
+  .trail-list .tnm{ flex:1; font-weight:500; }
+  .trail-list .tst{ font-size:11px; color:var(--ink-soft); white-space:nowrap;
+    font-variant-numeric:tabular-nums; }
+  @media (max-width:760px){
+    #trail-card{ left:10px; right:10px; width:auto; bottom:calc(44% + 12px); }
+  }
+
   /* elevation readout */
   #elev-readout{
     position:absolute; left:12px; bottom:64px; z-index:4; pointer-events:none; display:none;
@@ -410,6 +443,13 @@
     waders fish for trout all summer &mdash; brisk and glorious on hot afternoons. The swim beach on the Mountain
     Fork inside the park is the classic cool-off. It is peak season: book cabins, UTVs and zipline slots ahead.</p>
 
+    <div id="trails-sec">
+      <h2>Trails</h2>
+      <p class="hint" style="margin:0 0 6px">Drawn from the surveyed lines themselves. Tap one (here or on
+      the map) for its elevation profile; slide along the chart to follow it on the ground.</p>
+      <ul class="trail-list" id="trail-list"></ul>
+    </div>
+
     <h2>The Lay of the Land</h2>
     <p class="small">From the Little River bottoms the country climbs north into real mountains &mdash; the
     Ouachitas, old folded sandstone ridges running east&ndash;west. Drag with the right mouse button (or two
@@ -422,6 +462,7 @@
       <label>Raised terrain (3-D) <input type="checkbox" id="tg-terrain" checked></label>
       <label>Contour lines <input type="checkbox" id="tg-contours" checked></label>
       <label>Landmarks <input type="checkbox" id="tg-marks" checked></label>
+      <label>Trails <input type="checkbox" id="tg-trails" checked></label>
     </div>
 
     <h2>Appearance</h2>
@@ -447,11 +488,20 @@
   </div>
 </aside>
 
+<div id="trail-card">
+  <button id="tc-close" aria-label="Close">&times;</button>
+  <h3 id="tc-name"></h3>
+  <div id="tc-stats"></div>
+  <svg id="tc-svg" viewBox="0 0 320 96" preserveAspectRatio="none" aria-label="Elevation profile"></svg>
+  <div id="tc-hover">Slide along the profile to follow it on the map</div>
+</div>
+
 <div id="elev-readout"></div>
 <div id="veil">Surveying the Kiamichi country&hellip;</div>
 
 <script src="../vendor/maplibre-gl.js"></script>
 <script src="../vendor/maplibre-contour.min.js"></script>
+<script src="trails.js"></script>
 <script>
 (function(){
   'use strict';
@@ -555,6 +605,22 @@
   ] };
 
   var RELIEF_STOPS = [70,'#2e6f7f', 110,'#3a8068', 160,'#69a06c', 220,'#a3b974', 290,'#cdc384', 370,'#cfa868', 460,'#bd8454', 560,'#a8714a'];
+
+  /* ---------- trails (geometry & elevation profiles precomputed from OSM + USGS DEM) ---------- */
+  var TRAILS = (window.TRAILS && window.TRAILS.trails) || [];
+  var trailsGeo = { type:'FeatureCollection', features: TRAILS.map(function(t, i){
+    return { type:'Feature', id:i,
+             geometry:{ type:'MultiLineString', coordinates:t.parts },
+             properties:{ i:i, name:t.name, type:t.type } };
+  }) };
+  TRAILS.forEach(function(t){
+    var w = 180, e = -180, sN = -90, n = 90;
+    t.parts.forEach(function(part){ part.forEach(function(p){
+      if (p[0] < w) w = p[0]; if (p[0] > e) e = p[0];
+      if (p[1] < n) n = p[1]; if (p[1] > sN) sN = p[1];
+    }); });
+    t.bounds = [[w, n], [e, sN]];
+  });
 
   /* ---------- four palettes, one layer structure ---------- */
   var PALETTES = {
@@ -691,6 +757,7 @@
   function makeStyle(themeName){
     var P = PALETTES[themeName];
     var CSRC = P.denseContours ? 'contours-dense' : 'contours';
+    var TRAILC = P.cats.hiking || P.cats.nature || '#4f6e3c';
     var layers = [
       { id:'background', type:'background', paint:{ 'background-color':P.bg } },
 
@@ -818,6 +885,16 @@
         filter:['==',['get','class'],'rail'],
         paint:{ 'line-color':P.rail, 'line-dasharray':[0.12, 3],
           'line-width':['interpolate',['linear'],['zoom'], 11,4, 14,7, 18,12] } },
+
+      /* ---- named trails, drawn as routes ---- */
+      { id:'trail-case', type:'line', source:'trails',
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':P.bg, 'line-opacity':0.75,
+          'line-width':['interpolate',['linear'],['zoom'], 10,3, 13,5.5, 16,9] } },
+      { id:'trail-line', type:'line', source:'trails',
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':TRAILC, 'line-dasharray':[2.4, 1.3],
+          'line-width':['interpolate',['linear'],['zoom'], 10,1.5, 13,2.6, 16,4.5] } },
 
       { id:'bdy-parish', type:'line', source:'openmaptiles', 'source-layer':'boundary',
         filter:['all',['==',['get','admin_level'],6],['!=',['get','maritime'],1]],
@@ -965,7 +1042,8 @@
         contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
         'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
         landmarks: { type:'geojson', data:lmGeo },
-        regions: { type:'geojson', data:regionGeo }
+        regions: { type:'geojson', data:regionGeo },
+        trails: { type:'geojson', data:trailsGeo }
       },
       layers: layers
     };
@@ -1065,6 +1143,7 @@
 
   /* ---------- runtime state re-applied after load & after every theme swap ---------- */
   var LM_LAYERS = ['lm-glow','lm2-glow','lm-dot','lm-label','lm2-dot','lm2-label','lbl-region'];
+  var TR_LAYERS = ['trail-case','trail-line'];
   function applyRuntime(){
     styleReady = true;
     try {
@@ -1080,6 +1159,10 @@
       var mv = document.getElementById('tg-marks').checked ? 'visible' : 'none';
       LM_LAYERS.forEach(function(id){
         if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', mv);
+      });
+      var tv = document.getElementById('tg-trails').checked ? 'visible' : 'none';
+      TR_LAYERS.forEach(function(id){
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', tv);
       });
       applyBrightness();
       applyRelief();
@@ -1129,7 +1212,12 @@
     var hits = map.queryRenderedFeatures(
       [[e.point.x-6, e.point.y-6],[e.point.x+6, e.point.y+6]],
       { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
-    if (hits.length) showLandmark(hits[0].properties, hits[0].geometry.coordinates);
+    if (hits.length) { showLandmark(hits[0].properties, hits[0].geometry.coordinates); return; }
+    if (map.getLayer('trail-line')) {
+      var th = map.queryRenderedFeatures(
+        [[e.point.x-7, e.point.y-7],[e.point.x+7, e.point.y+7]], { layers:['trail-line','trail-case'] });
+      if (th.length) openTrail(+th[0].properties.i);
+    }
   });
 
   var listEl = document.getElementById('lm-list');
@@ -1152,6 +1240,106 @@
     }
   }
   refreshLegend();
+
+  /* ---------- trail list, profile card & hover marker ---------- */
+  var tcEl = document.getElementById('trail-card'),
+      tcName = document.getElementById('tc-name'),
+      tcStats = document.getElementById('tc-stats'),
+      tcSvg = document.getElementById('tc-svg'),
+      tcHover = document.getElementById('tc-hover');
+  var profDotEl = document.createElement('div');
+  profDotEl.className = 'prof-dot';
+  var profMarker = new maplibregl.Marker({ element: profDotEl });
+  var profOn = false, curTrail = null;
+
+  function trailDifficulty(t){
+    if (t.gainFt > 800 || t.lenMi > 4.5) return 'Strenuous';
+    if (t.gainFt > 300 || t.lenMi > 2.5) return 'Moderate';
+    return 'Easy';
+  }
+  function fmtStats(t){
+    return '<b>' + t.lenMi + ' mi</b> &middot; +' + t.gainFt.toLocaleString() + ' ft &middot; ' +
+           t.loFt.toLocaleString() + '&ndash;' + t.hiFt.toLocaleString() + ' ft' +
+           '<span class="chip">' + (t.type === 'ride' ? 'Ride' : 'Hike') +
+           ' &middot; ' + trailDifficulty(t) + '</span>';
+  }
+  function drawProfile(t){
+    var P = t.profile, W = 320, H = 96, top = 10, bot = 84;
+    var miMax = P[P.length-1][0] || 1;
+    var fts = P.map(function(p){ return p[1]; });
+    var lo = Math.min.apply(null, fts), hi = Math.max.apply(null, fts);
+    if (hi - lo < 40) { var mid = (hi+lo)/2; lo = mid-20; hi = mid+20; }
+    function X(mi){ return (mi/miMax)*W; }
+    function Y(ft){ return bot - (ft-lo)/(hi-lo)*(bot-top); }
+    var d = '';
+    P.forEach(function(p, i){ d += (i ? 'L' : 'M') + X(p[0]).toFixed(1) + ' ' + Y(p[1]).toFixed(1); });
+    var area = d + 'L' + W + ' ' + H + 'L0 ' + H + 'Z';
+    tcSvg.innerHTML =
+      '<path d="' + area + '" fill="currentColor" opacity="0.13"></path>' +
+      '<path d="' + d + '" fill="none" stroke="currentColor" stroke-width="2"></path>' +
+      '<text x="4" y="' + (top+2) + '" font-size="9" fill="currentColor" opacity=".65" dominant-baseline="hanging">' + Math.round(hi) + ' ft</text>' +
+      '<text x="4" y="' + (bot+9) + '" font-size="9" fill="currentColor" opacity=".65">' + Math.round(lo) + ' ft</text>' +
+      '<text x="' + (W-4) + '" y="' + (bot+9) + '" font-size="9" fill="currentColor" opacity=".65" text-anchor="end">' + t.lenMi + ' mi</text>';
+    tcSvg.style.color = 'var(--accent)';
+  }
+  function openTrail(i){
+    var t = TRAILS[i];
+    if (!t) return;
+    curTrail = t;
+    tcName.textContent = t.name;
+    tcStats.innerHTML = fmtStats(t);
+    tcHover.textContent = 'Slide along the profile to follow it on the map';
+    drawProfile(t);
+    tcEl.style.display = 'block';
+  }
+  function flyTrail(i){
+    var t = TRAILS[i];
+    map.fitBounds(t.bounds, { padding:70, duration:1800, maxZoom:15 });
+    openTrail(i);
+  }
+  document.getElementById('tc-close').addEventListener('click', function(){
+    tcEl.style.display = 'none';
+    if (profOn) { profMarker.remove(); profOn = false; }
+    curTrail = null;
+  });
+  function profPoint(clientX){
+    if (!curTrail) return;
+    var r = tcSvg.getBoundingClientRect();
+    var f = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    var P = curTrail.profile;
+    var p = P[Math.round(f * (P.length - 1))];
+    tcHover.textContent = p[0] + ' mi \u00b7 ' + Math.round(p[1]).toLocaleString() + ' ft';
+    profMarker.setLngLat([p[2], p[3]]);
+    if (!profOn) { profMarker.addTo(map); profOn = true; }
+  }
+  tcSvg.addEventListener('pointermove', function(e){ profPoint(e.clientX); });
+  tcSvg.addEventListener('pointerdown', function(e){ profPoint(e.clientX); });
+
+  var trailListEl = document.getElementById('trail-list');
+  if (!TRAILS.length) {
+    document.getElementById('trails-sec').style.display = 'none';
+    document.getElementById('tg-trails').parentNode.style.display = 'none';
+  } else {
+    TRAILS.forEach(function(t, i){
+      var li = document.createElement('li');
+      li.innerHTML = '<span class="tnm">' + t.name + '</span>' +
+                     '<span class="tst">' + t.lenMi + ' mi \u00b7 +' + t.gainFt.toLocaleString() + ' ft</span>';
+      li.addEventListener('click', function(){ flyTrail(i); });
+      trailListEl.appendChild(li);
+    });
+  }
+
+  document.getElementById('tg-trails').addEventListener('change', function(e){
+    var v = e.target.checked ? 'visible' : 'none';
+    TR_LAYERS.forEach(function(id){
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v);
+    });
+    if (!e.target.checked) {
+      tcEl.style.display = 'none';
+      if (profOn) { profMarker.remove(); profOn = false; }
+      curTrail = null;
+    }
+  });
 
   /* ---------- toggles & reset ---------- */
   document.getElementById('tg-terrain').addEventListener('change', function(e){
@@ -1190,7 +1378,7 @@
   var readout = document.getElementById('elev-readout');
   map.on('mousemove', function(e){
     if (!map.getLayer('lm-dot')) return;
-    var hits = map.queryRenderedFeatures(e.point, { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
+    var hits = map.queryRenderedFeatures(e.point, { layers:['lm-dot','lm-label','lm2-dot','lm2-label','trail-line'] });
     map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
     if (!map.getTerrain()) { readout.style.display = 'none'; return; }
     var z = map.queryTerrainElevation(e.lngLat);
