@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Atlas</title>
-<meta name="description" content="A collection of living charts — interactive terrain maps in four switchable editions (antique, midnight, hydro, relief), drawn from public data.">
+<meta name="description" content="A collection of living charts — interactive terrain maps in five switchable editions (antique, midnight, hydro, relief, topo), drawn from public data.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -37,6 +37,16 @@
     --radius:18px; --chip:rgba(46,111,99,.08); --hover-shadow:0 14px 40px rgba(60,60,40,.35);
     --card-shadow:0 8px 28px rgba(60,60,40,.25);
   }
+  body.theme-topo{
+    --bg:#e9e5d8; --card:rgba(250,248,240,.95); --line:rgba(94,73,42,.22); --rule:rgba(94,73,42,.18);
+    --ink:#3a352a; --ink-soft:#6b6450; --ink-faint:#948d77; --accent:#6b5635;
+    --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',system-ui,sans-serif;
+    --radius:18px; --chip:rgba(107,86,53,.07); --hover-shadow:0 14px 40px rgba(80,70,40,.32);
+    --card-shadow:0 8px 28px rgba(80,70,40,.22);
+  }
+  body.theme-topo{ background:var(--bg); }
+  body.theme-topo h1{ background:linear-gradient(92deg,#5d4f35,#8a7a55 55%,#4f7d99);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
   body.theme-hydro{ background:radial-gradient(ellipse at 50% -10%, #0b1420, var(--bg) 60%); }
   body.theme-relief{ background:var(--bg); }
   body.theme-hydro h1{ background:linear-gradient(92deg,#7dd3fc,#38bdf8 55%,#0e85c8);
@@ -159,6 +169,7 @@
     <button id="ed-midnight">Midnight</button>
     <button id="ed-hydro">Hydro</button>
     <button id="ed-relief">Relief</button>
+    <button id="ed-topo">Topo</button>
   </nav>
 </header>
 
@@ -169,7 +180,7 @@
   <a href="https://openfreemap.org">OpenFreeMap</a> &middot; Elevations from USGS&nbsp;3DEP &amp; SRTM via
   <a href="https://registry.opendata.aws/terrain-tiles/">Terrain Tiles on AWS</a> &middot; Landmarks verified with
   <a href="https://overturemaps.org">Overture Maps</a><br>
-  Every chart opens in any of four editions &mdash; antique, midnight, hydro &amp; relief. Switch up top, or inside the map itself.
+  Every chart opens in any of five editions &mdash; antique, midnight, hydro, relief &amp; topo. Switch up top, or inside the map itself.
 </footer>
 
 <script>
@@ -196,8 +207,8 @@
     }
   ];
 
-  var THEME_NAMES = ['antique','midnight','hydro','relief'];
-  var THEME_UI = { antique:'ui-classic', midnight:'ui-modern', hydro:'ui-modern', relief:'ui-modern' };
+  var THEME_NAMES = ['antique','midnight','hydro','relief','topo'];
+  var THEME_UI = { antique:'ui-classic', midnight:'ui-modern', hydro:'ui-modern', relief:'ui-modern', topo:'ui-modern' };
   var theme = 'antique';
   try {
     var saved = localStorage.getItem('atlas-theme');

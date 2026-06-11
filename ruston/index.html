@@ -59,6 +59,21 @@
     --pop-bg:rgba(252,250,243,.96); --pop-border:rgba(60,70,60,.2); --pop-radius:14px;
     --veil-bg:#f0ece0; --veil-txt:#5d655c;
   }
+  body.theme-topo{
+    --bg:#e9e5d8; --map-bg:#f4f1e8;
+    --panel-bg:rgba(250,248,240,.93); --panel-border:rgba(94,73,42,.22); --panel-radius:20px;
+    --panel-shadow:0 16px 44px rgba(80,70,40,.25);
+    --ink:#3a352a; --ink-soft:#6b6450; --ink-faint:#948d77; --rule:rgba(94,73,42,.18); --accent:#6b5635;
+    --font-display:'Space Grotesk',sans-serif; --font-body:'Inter',system-ui,sans-serif;
+    --chip-bg:rgba(107,86,53,.07); --hover:rgba(107,86,53,.07);
+    --elev-grad:repeating-linear-gradient(90deg,#a08a5e 0 2px,#f4f1e8 2px 13px);
+    --thumb:#6b5635; --thumb-glow:none; --track:#d8d2c0;
+    --pop-bg:rgba(250,248,240,.96); --pop-border:rgba(94,73,42,.25); --pop-radius:14px;
+    --veil-bg:#f4f1e8; --veil-txt:#6b6450;
+  }
+  body.theme-topo h1{ background:linear-gradient(92deg,#5d4f35,#8a7a55 55%,#4f7d99);
+    -webkit-background-clip:text; background-clip:text; }
+  body.theme-topo #bright-row{ display:none; }
   body.theme-hydro h1{ background:linear-gradient(92deg,#7dd3fc,#38bdf8 55%,#0e85c8);
     -webkit-background-clip:text; background-clip:text; }
   body.theme-relief h1{ background:linear-gradient(92deg,#2e6f63 0%,#5d976e 50%,#b97f50 100%);
@@ -322,6 +337,7 @@
   <button id="ed-midnight">Midnight</button>
   <button id="ed-hydro">Hydro</button>
   <button id="ed-relief">Relief</button>
+  <button id="ed-topo">Topo</button>
 </nav>
 
 <svg id="rose" viewBox="0 0 100 100" aria-label="Compass rose — click to face north">
@@ -443,6 +459,11 @@
   var contourTiles = demSource.contourProtocolUrl({
     multiplier: 3.28084,
     thresholds: { 9:[200,1000], 11:[100,500], 12:[40,200], 14:[20,100], 16:[10,50] },
+    contourLayer: 'contours', elevationKey: 'ele', levelKey: 'level', overzoom: 1
+  });
+  var contourTilesDense = demSource.contourProtocolUrl({
+    multiplier: 3.28084,
+    thresholds: { 9:[100,500], 11:[40,200], 12:[20,100], 14:[10,50], 16:[5,20] },
     contourLayer: 'contours', elevationKey: 'ele', levelKey: 'level', overzoom: 1
   });
 
@@ -600,9 +621,32 @@
     regionText:'#6f6850', regionFont:'Noto Sans Regular',
     reliefRamp: RELIEF_STOPS
   });
-  var THEME_NAMES = ['antique','midnight','hydro','relief'];
+  /* Topo: pure contour linework on clean paper — the lines are the landscape. */
+  PALETTES.topo = Object.assign({}, PALETTES.antique, {
+    glow:false,
+    bg:'#f4f1e8',
+    wood:'#8a8a6a', woodOp:.07, grass:'#9a9a72', grassOp:.05, wetland:'#7a9a8e', wetlandOp:.10,
+    residential:'#b9b2a0', resOp:.08, built:'#b3aa94', builtOp:.08, campus:'#b3a78c', campusOp:.10,
+    green:'#8f9c74', greenOp:.10, park:'#85986c', parkOp:.08,
+    hsShadow:'#b5ad9c', hsHighlight:'#ffffff', hsAccent:'#cfc8b8',
+    ctMinor:'rgba(122,100,66,0.45)', ctMajor:'rgba(94,73,42,0.7)', ctText:'#6b5635', ctFont:'Noto Sans Regular',
+    water:'#b7d3e3', waterEdge:'#6d9cb8', waterway:'#7fa9c4',
+    aeroFill:'#e3ddcd', aeroLine:'#c2bba8',
+    bldg:'#ddd6c5', bldgLine:'#c2bba8', bldgOp:.6,
+    minorCase:'#b3ab97', minor:'#efebdd', service:'#cfc8b5', path:'#8a7a5a',
+    secCase:'#a09880', sec:'#e8e3d2', priCase:'#8d8468', pri:'#ded8c4',
+    mwyCase:'#6b6450', mwy:'#c3b894',
+    rail:'#8d8672', bdyParish:'#9a8d72', bdyCity:'#a89b80',
+    roadText:'#6b6450', refText:'#5d5640', refHalo:'#ece7d8',
+    waterText:'#4f7d99', poiText:'#7d765f', poiFont:'Noto Sans Regular',
+    hoodText:'#8d8670', hoodFont:'Noto Sans Regular', villageText:'#5d5640', townText:'#433d2c',
+    regionText:'#8d8672', regionFont:'Noto Sans Regular',
+    denseContours:true
+  });
+  var THEME_NAMES = ['antique','midnight','hydro','relief','topo'];
   var THEME_UI = { antique:'ui-classic mode-light', midnight:'ui-modern mode-dark',
-                   hydro:'ui-modern mode-dark', relief:'ui-modern mode-light' };
+                   hydro:'ui-modern mode-dark', relief:'ui-modern mode-light',
+                   topo:'ui-modern mode-light' };
 
   var name = ['coalesce', ['get','name:latin'], ['get','name:en'], ['get','name']];
   function catColor(P){
@@ -613,6 +657,7 @@
 
   function makeStyle(themeName){
     var P = PALETTES[themeName];
+    var CSRC = P.denseContours ? 'contours-dense' : 'contours';
     var layers = [
       { id:'background', type:'background', paint:{ 'background-color':P.bg } },
 
@@ -645,13 +690,13 @@
                 'hillshade-accent-color':P.hsAccent, 'hillshade-exaggeration':0.6,
                 'hillshade-illumination-direction':335 } },
 
-      { id:'contour-minor', type:'line', source:'contours', 'source-layer':'contours',
+      { id:'contour-minor', type:'line', source:CSRC, 'source-layer':'contours',
         filter:['==',['get','level'],0],
         paint:{ 'line-color':P.ctMinor, 'line-width':0.8 } },
-      { id:'contour-major', type:'line', source:'contours', 'source-layer':'contours',
+      { id:'contour-major', type:'line', source:CSRC, 'source-layer':'contours',
         filter:['>',['get','level'],0],
         paint:{ 'line-color':P.ctMajor, 'line-width':1.4 } },
-      { id:'contour-label', type:'symbol', source:'contours', 'source-layer':'contours',
+      { id:'contour-label', type:'symbol', source:CSRC, 'source-layer':'contours',
         filter:['>',['get','level'],0], minzoom:12,
         layout:{ 'symbol-placement':'line',
           'text-field':['concat',['number-format',['get','ele'],{}],' ft'],
@@ -885,6 +930,7 @@
         'relief-dem': { type:'raster-dem', encoding:'terrarium',
           tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
         contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
+        'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
         landmarks: { type:'geojson', data:lmGeo },
         regions: { type:'geojson', data:regionGeo }
       },
