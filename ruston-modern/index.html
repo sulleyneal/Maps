@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruston, Louisiana — Midnight Terrain</title>
+<meta name="description" content="A modern interactive terrain map of Ruston and Lincoln Parish, Louisiana — dark basemap, 3D relief, live OpenStreetMap data.">
+<link rel="stylesheet" href="../vendor/maplibre-gl.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d10; --glass:rgba(17,20,26,.78); --line:rgba(255,255,255,.08);
+    --txt:#e5eaf0; --txt-dim:#8b97a5; --txt-faint:#5c6877;
+    --sky:#38bdf8; --emerald:#34d399;
+    --c-heritage:#f43f5e; --c-culture:#a78bfa; --c-education:#38bdf8;
+    --c-nature:#34d399; --c-transport:#fbbf24;
+  }
+  *{ box-sizing:border-box }
+  html,body{ height:100%; margin:0 }
+  body{ background:var(--bg); color:var(--txt); font-family:'Inter',system-ui,sans-serif; overflow:hidden; }
+
+  #map{ position:absolute; inset:0; background:var(--bg); }
+
+  /* ============ floating glass panel ============ */
+  #panel{
+    position:absolute; z-index:5; top:16px; left:16px; bottom:16px; width:344px;
+    background:var(--glass); -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+    border:1px solid var(--line); border-radius:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+    padding:24px 22px 16px; overflow-y:auto; overscroll-behavior:contain;
+    scrollbar-width:thin; scrollbar-color:#2a313b transparent;
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:7px;
+    font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--txt-dim); background:rgba(255,255,255,.05); border:1px solid var(--line);
+    border-radius:999px; padding:5px 12px; margin:0 0 14px;
+  }
+  .eyebrow::before{ content:""; width:7px; height:7px; border-radius:50%;
+    background:var(--emerald); box-shadow:0 0 8px var(--emerald); }
+  h1{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:42px; line-height:1;
+    margin:0 0 6px; letter-spacing:-.01em;
+    background:linear-gradient(92deg,#7dd3fc 0%,#38bdf8 45%,#34d399 100%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .tagline{ font-size:13.5px; color:var(--txt-dim); margin:0 0 18px; line-height:1.55; }
+  .about{ font-size:13px; line-height:1.65; color:#b9c2cc; margin:0 0 8px; }
+
+  h2{
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:600;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--txt-faint);
+    margin:22px 0 10px;
+  }
+
+  .stats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stats div{
+    background:rgba(255,255,255,.04); border:1px solid var(--line); border-radius:14px;
+    padding:10px 12px;
+  }
+  .stats b{ display:block; font-size:10px; font-weight:600; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--txt-faint); margin-bottom:3px; }
+  .stats span{ font-size:14px; font-weight:500; }
+  .stats small{ color:var(--txt-dim); font-size:11px; }
+
+  .lm-list{ list-style:none; margin:0; padding:0; font-size:13px; }
+  .lm-list li{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; cursor:pointer;
+    border-radius:12px; transition:background .15s;
+  }
+  .lm-list li:hover{ background:rgba(255,255,255,.06); }
+  .lm-list .dot{ width:8px; height:8px; min-width:8px; border-radius:50%;
+    box-shadow:0 0 7px currentColor; }
+  .lm-list .nm{ flex:1; font-weight:500; }
+  .lm-list .cat{ font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--txt-faint); }
+
+  .hint{ font-size:11.5px; color:var(--txt-faint); line-height:1.55; margin:0 0 8px; }
+
+  .elev-bar{ height:10px; border-radius:999px; margin:8px 0 6px;
+    background:linear-gradient(90deg,#16303f,#1d3a2e,#3a4a2e,#6b5a35,#8a6a45); }
+  .elev-lab{ display:flex; justify-content:space-between; font-size:11px; color:var(--txt-dim); }
+
+  .toggles{ display:flex; flex-direction:column; gap:4px; }
+  .toggles label{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; font-weight:500; cursor:pointer; padding:7px 10px; border-radius:12px;
+  }
+  .toggles label:hover{ background:rgba(255,255,255,.05); }
+  .toggles input{ appearance:none; -webkit-appearance:none; width:36px; height:20px; border-radius:999px;
+    background:#2a313b; position:relative; cursor:pointer; transition:background .2s; margin:0; }
+  .toggles input::after{ content:""; position:absolute; top:2px; left:2px; width:16px; height:16px;
+    border-radius:50%; background:#aebdcd; transition:transform .2s, background .2s; }
+  .toggles input:checked{ background:#0e7490; }
+  .toggles input:checked::after{ transform:translateX(16px); background:#e0f2fe; }
+
+  button.btn{
+    font:600 12px 'Inter',sans-serif; letter-spacing:.06em; text-transform:uppercase;
+    width:100%; margin-top:14px; padding:11px; border-radius:14px; cursor:pointer;
+    color:var(--txt); background:rgba(255,255,255,.06); border:1px solid var(--line);
+    transition:background .15s;
+  }
+  button.btn:hover{ background:rgba(255,255,255,.11); }
+
+  .credits{ margin-top:18px; font-size:10.5px; line-height:1.7; color:var(--txt-faint); }
+  .credits a{ color:#67b7dd; text-decoration:none; }
+  #warn{ display:none; margin-top:12px; font-size:12px; color:#fda4af;
+    border:1px solid rgba(244,63,94,.35); border-radius:12px; padding:9px 11px; }
+
+  /* elevation readout */
+  #elev-readout{
+    position:absolute; left:14px; bottom:64px; z-index:4; pointer-events:none; display:none;
+    font:500 12px 'Inter',sans-serif; color:var(--txt);
+    background:var(--glass); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    border:1px solid var(--line); border-radius:999px; padding:5px 12px;
+  }
+
+  /* loading veil */
+  #veil{
+    position:absolute; inset:0; z-index:6; display:flex; flex-direction:column; gap:14px;
+    align-items:center; justify-content:center; background:var(--bg); transition:opacity .7s;
+    font:500 14px 'Space Grotesk',sans-serif; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--txt-dim);
+  }
+  #veil .pulse{ width:10px; height:10px; border-radius:50%; background:var(--sky);
+    animation:pulse 1.1s ease-in-out infinite; box-shadow:0 0 16px var(--sky); }
+  @keyframes pulse{ 50%{ transform:scale(1.7); opacity:.45 } }
+  #veil.gone{ opacity:0; pointer-events:none; }
+
+  /* maplibre chrome, midnight-ified */
+  .maplibregl-popup-content{
+    font-family:'Inter',sans-serif; background:var(--glass);
+    -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+    border:1px solid var(--line); border-radius:14px; color:var(--txt);
+    box-shadow:0 14px 40px rgba(0,0,0,.55); padding:14px 16px 12px; max-width:260px;
+  }
+  .maplibregl-popup-content h3{ margin:0 0 2px; font:600 14px 'Space Grotesk',sans-serif; }
+  .maplibregl-popup-content .pcat{ font-size:9.5px; font-weight:600; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--txt-faint); display:block; margin-bottom:7px; }
+  .maplibregl-popup-content p{ margin:0; font-size:12.5px; line-height:1.55; color:#b9c2cc; }
+  .maplibregl-popup-tip{ border-top-color:rgba(17,20,26,.78) !important; }
+  .maplibregl-popup-close-button{ color:var(--txt-dim); font-size:17px; }
+  .maplibregl-ctrl-group{ background:var(--glass); border:1px solid var(--line);
+    border-radius:12px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+  .maplibregl-ctrl-group button{ background:transparent; }
+  .maplibregl-ctrl-group button + button{ border-top:1px solid var(--line); }
+  .maplibregl-ctrl button .maplibregl-ctrl-icon{ filter:invert(.9); }
+  .maplibregl-ctrl-scale{
+    background:rgba(17,20,26,.6); border-color:#5c6877; color:#aebdcd;
+    font:11px 'Inter',sans-serif; border-radius:0 0 6px 6px;
+  }
+  .maplibregl-ctrl-attrib{ background:rgba(17,20,26,.7) !important;
+    font-family:'Inter',sans-serif; }
+  .maplibregl-ctrl-attrib a{ color:#8b97a5 !important; }
+
+  /* mobile: bottom sheet */
+  @media (max-width:760px){
+    #panel{
+      top:auto; left:0; right:0; bottom:0; width:100%; height:44%;
+      border-radius:20px 20px 0 0; border-left:none; border-right:none; border-bottom:none;
+      padding:14px 18px;
+    }
+    #panel::before{ content:""; display:block; width:42px; height:4px; border-radius:999px;
+      background:#2a313b; margin:0 auto 12px; }
+    h1{ font-size:32px }
+    #elev-readout{ bottom:auto; top:14px; left:14px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<aside id="panel">
+  <span class="eyebrow">Lincoln Parish &middot; Louisiana</span>
+  <h1>Ruston</h1>
+  <p class="tagline">A railroad town of 1884 in the piney hills of North Louisiana &mdash;
+  live terrain, streets &amp; landmarks.</p>
+
+  <p class="about">Founded when the Vicksburg, Shreveport &amp; Pacific line crossed Robert E. Russ&rsquo;s
+  land, Ruston grew from depot to parish seat within a year. Today it&rsquo;s a university town of
+  22,000 — Louisiana Tech on the west side, Grambling State four miles further — known statewide
+  for June peaches and singletrack in the hills.</p>
+
+  <h2>At a glance</h2>
+  <div class="stats">
+    <div><b>Founded</b><span>1884</span></div>
+    <div><b>Population</b><span>22,166</span> <small>2020</small></div>
+    <div><b>Elevation</b><span>311 ft</span> <small>95 m</small></div>
+    <div><b>Highways</b><span>I-20 &middot; US 80/167</span></div>
+  </div>
+
+  <h2>Landmarks</h2>
+  <p class="hint">Tap to fly there. Smaller sites appear as you zoom past 13.</p>
+  <ul class="lm-list" id="lm-list"></ul>
+
+  <h2>Terrain</h2>
+  <p class="hint">Gentle ridges of the North Louisiana uplands, exaggerated 2.5&times; here.
+  Roughly 130&ndash;360&nbsp;ft of relief; contours every 40&nbsp;ft. Two-finger drag (or right-drag)
+  to tilt and rotate; point at the map for ground elevation.</p>
+  <div class="elev-bar"></div>
+  <div class="elev-lab"><span>≈130 ft</span><span>≈360 ft</span></div>
+
+  <h2>Layers</h2>
+  <div class="toggles">
+    <label>3D terrain <input type="checkbox" id="tg-terrain" checked></label>
+    <label>Contour lines <input type="checkbox" id="tg-contours" checked></label>
+    <label>Landmarks <input type="checkbox" id="tg-marks" checked></label>
+  </div>
+  <button class="btn" id="btn-reset">Reset view</button>
+  <div id="warn">Street data couldn’t be reached — terrain is shown, but roads and water may be missing.
+  Check your connection and reload.</div>
+
+  <div class="credits">
+    Streets &amp; names © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+    contributors via <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a> ·
+    Elevation: USGS 3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">AWS Terrain Tiles</a> ·
+    Landmarks verified with <a href="https://overturemaps.org" target="_blank" rel="noopener">Overture Maps</a> ·
+    MapLibre GL · <a href="../ruston/" style="color:#86dcb8">See the antique edition&nbsp;&rarr;</a>
+  </div>
+</aside>
+
+<div id="elev-readout"></div>
+<div id="veil"><div class="pulse"></div>Loading terrain</div>
+
+<script src="../vendor/maplibre-gl.js"></script>
+<script src="../vendor/maplibre-contour.min.js"></script>
+<script>
+(function(){
+  'use strict';
+
+  var glTest = document.createElement('canvas');
+  if (!(glTest.getContext('webgl2') || glTest.getContext('webgl'))) {
+    document.getElementById('veil').textContent = 'This map requires a browser with WebGL.';
+    return;
+  }
+
+  var EXAGGERATION = 2.5;
+  var isNarrow = Math.min(window.innerWidth, window.innerHeight) < 500;
+  var HOME = isNarrow
+    ? { center:[-92.6365, 32.5330], zoom:11.6, pitch:45, bearing:0 }
+    : { center:[-92.6365, 32.5285], zoom:12.35, pitch:52, bearing:-12 };
+
+  /* ---------- terrain & contours from public Terrain Tiles (USGS/SRTM via Mapzen on AWS) ---------- */
+  var demSource = new mlcontour.DemSource({
+    url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
+    encoding: 'terrarium',
+    maxzoom: 13,
+    worker: true
+  });
+  demSource.setupMaplibre(maplibregl);
+
+  var contourTiles = demSource.contourProtocolUrl({
+    multiplier: 3.28084,
+    thresholds: { 9:[200,1000], 11:[100,500], 12:[40,200], 14:[20,100], 16:[10,50] },
+    contourLayer: 'contours', elevationKey: 'ele', levelKey: 'level', overzoom: 1
+  });
+
+  /* ---------- curated landmarks — same verified set as the antique edition ---------- */
+  var CATS = {
+    heritage:  { label:'Heritage',   hex:'#f43f5e' },
+    culture:   { label:'Culture',    hex:'#a78bfa' },
+    education: { label:'Education',  hex:'#38bdf8' },
+    nature:    { label:'Recreation', hex:'#34d399' },
+    transport: { label:'Transport',  hex:'#fbbf24' }
+  };
+  var LANDMARKS = [
+    { name:'Downtown & Railroad District', short:'Downtown', cat:'heritage', tier:1, lngLat:[-92.6385, 32.5278], zoom:15.2,
+      blurb:'Brick storefronts of the 1890s–1920s face the old Vicksburg, Shreveport & Pacific tracks that gave Ruston its start in 1884. Murals, shops and cafés now fill the blocks either side of the rails.' },
+    { name:'Dixie Center for the Arts', short:'Dixie Theater', cat:'culture', tier:2, lngLat:[-92.6378, 32.5301], zoom:15.6,
+      blurb:'A 1928 movie house on North Vienna Street — the Astor, then the Rialto, then the Dixie — listed on the National Register in 1993 and restored as the parish’s performing-arts home.' },
+    { name:'Railroad Park', short:'Railroad Park', cat:'culture', tier:2, lngLat:[-92.6387, 32.5288], zoom:15.6,
+      blurb:'The downtown green beside the tracks at West Park Avenue — stage, splash pad and festival ground, busiest each June when the Louisiana Peach Festival takes over the district.' },
+    { name:'Ruston Farmers Market', short:'Farmers Market', cat:'culture', tier:2, lngLat:[-92.6355, 32.5293], zoom:15.6,
+      blurb:'Saturday-morning market on East Mississippi Avenue where parish growers sell produce, eggs and — in early summer — the peaches Ruston is famous for.' },
+    { name:'Lincoln Parish Courthouse', short:'Courthouse', cat:'heritage', tier:2, lngLat:[-92.6388, 32.5267], zoom:15.6,
+      blurb:'The parish has been judged and governed from this square on West Texas Avenue since the seat moved here from old Vienna in 1884.' },
+    { name:'Lincoln Parish Museum', short:'Parish Museum', cat:'heritage', tier:2, lngLat:[-92.6379, 32.5342], zoom:15.5,
+      blurb:'A late-1800s home on North Vienna Street kept as a museum of parish life, a short walk north of the courthouse square.' },
+    { name:'North Louisiana Military Museum', short:'Military Museum', cat:'heritage', tier:2, lngLat:[-92.6331, 32.5305], zoom:15.5,
+      blurb:'Uniforms, weapons, vehicles and first-hand stories of North Louisiana service members across two centuries of American conflicts, on Memorial Drive.' },
+    { name:'Louisiana Tech University', short:'Louisiana Tech', cat:'education', tier:1, lngLat:[-92.6462, 32.5271], zoom:14.6,
+      blurb:'Founded in 1894 as the Industrial Institute and College of Louisiana; today about 11,000 students. Keeny Hall and Howard Auditorium anchor the historic Quad.' },
+    { name:'Joe Aillet Stadium', short:'Aillet Stadium', cat:'nature', tier:2, lngLat:[-92.6559, 32.5321], zoom:15,
+      blurb:'Home of the Tech Bulldogs since 1968, on the north side of campus along West Alabama Avenue — Terry Bradshaw threw here before Pittsburgh.' },
+    { name:'Grambling State University', short:'Grambling State', cat:'education', tier:1, lngLat:[-92.7170, 32.5180], zoom:14.4,
+      blurb:'Historically Black university founded in 1901, four miles west of Ruston, famed for its Tigers and the World Famed Tiger Marching Band.' },
+    { name:'Eddie G. Robinson Museum', short:'Robinson Museum', cat:'heritage', tier:2, lngLat:[-92.7145, 32.5258], zoom:15.2,
+      blurb:'A Louisiana state museum on the Grambling campus honoring Coach Eddie Robinson, who won 408 games in 56 seasons and sent more than 200 players to the pros.' },
+    { name:'Robinson Memorial Stadium', short:'Robinson Stadium', cat:'nature', tier:2, lngLat:[-92.7212, 32.5208], zoom:15,
+      blurb:'Eddie G. Robinson Memorial Stadium, where the Grambling Tigers play — named for the coach who built the program into a legend.' },
+    { name:'Lincoln Parish Park', short:'Lincoln Parish Park', cat:'nature', tier:1, lngLat:[-92.6061, 32.5890], zoom:14.4,
+      blurb:'Wooded hills around a small lake northeast of town, with a sandy swim beach, campground and a mountain-bike loop that draws riders from far beyond Louisiana.' },
+    { name:'Rock Island Greenway', short:'Rock Island Greenway', cat:'nature', tier:2, lngLat:[-92.6440, 32.5411], zoom:15,
+      blurb:'A rails-to-trails path on the old Chicago, Rock Island & Pacific roadbed — the town’s second railroad — threading the neighborhoods north of downtown.' },
+    { name:'Hideaway Park', short:'Hideaway Park', cat:'nature', tier:2, lngLat:[-92.6598, 32.5346], zoom:15,
+      blurb:'Garland Gregory Hideaway Park — a wooded city park on the west side with a disc-golf course looping through the pines.' },
+    { name:'Ruston Sports Complex', short:'Sports Complex', cat:'nature', tier:1, lngLat:[-92.6348, 32.5056], zoom:14.6,
+      blurb:'Tournament-scale ballfields and courts on Champions Way off US 167, south of the interstate — the city’s big draw for traveling teams.' },
+    { name:'Mitcham Farms Orchard', short:'Mitcham Farms', cat:'nature', tier:1, lngLat:[-92.6836, 32.5667], zoom:14.6,
+      blurb:'Louisiana’s largest peach orchard, in the Mitcham family for some seventy years, in the hills northwest of town — the fruit behind the Peach Festival. The farm store opens in summer.' },
+    { name:'Autrey House Museum', short:'Autrey House', cat:'heritage', tier:1, lngLat:[-92.6755, 32.7008], zoom:15,
+      blurb:'An 1849 dogtrot farmhouse on LA 151 near Dubach — among the oldest buildings in the parish, on the National Register, kept as a museum of pioneer life.' },
+    { name:'Visitor Center & Chamber', short:'Visitor Center', cat:'culture', tier:2, lngLat:[-92.6412, 32.5526], zoom:15,
+      blurb:'The Ruston–Lincoln Convention & Visitors Bureau on North Trenton Street — maps, peach-season news and a friendly word on where to start.' },
+    { name:'Ruston Regional Airport', short:'Ruston Airport', cat:'transport', tier:1, lngLat:[-92.5911, 32.5087], zoom:13.8,
+      blurb:'The city’s general-aviation field (RSN) on Flight Line Drive, southeast of downtown.' }
+  ];
+  var lmGeo = { type:'FeatureCollection', features: LANDMARKS.map(function(lm, i){
+    return { type:'Feature', id:i, geometry:{ type:'Point', coordinates:lm.lngLat },
+             properties:{ name:lm.name, short:lm.short, cat:CATS[lm.cat].label,
+                          color:CATS[lm.cat].hex, blurb:lm.blurb, tier:lm.tier } };
+  }) };
+  var regionGeo = { type:'FeatureCollection', features:[
+    { type:'Feature', geometry:{ type:'Point', coordinates:[-92.665, 32.648] },
+      properties:{ t:'THE PINEY HILLS' } }
+  ] };
+
+  /* ---------- midnight style over live OpenStreetMap vector data ---------- */
+  var BG = '#0e1114';
+  var name = ['coalesce', ['get','name:latin'], ['get','name:en'], ['get','name']];
+
+  var style = {
+    version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    sky: {
+      'sky-color':'#0a1420', 'horizon-color':'#16222e', 'fog-color':BG,
+      'sky-horizon-blend':0.8, 'horizon-fog-blend':0.6
+    },
+    sources: {
+      openmaptiles: { type:'vector', url:'https://tiles.openfreemap.org/planet' },
+      'terrain-dem': { type:'raster-dem', encoding:'terrarium',
+        tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
+      'hillshade-dem': { type:'raster-dem', encoding:'terrarium',
+        tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
+      contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
+      landmarks: { type:'geojson', data:lmGeo },
+      regions: { type:'geojson', data:regionGeo }
+    },
+    layers: [
+      { id:'background', type:'background', paint:{ 'background-color': BG } },
+
+      /* ---- land tints ---- */
+      { id:'lc-wood', type:'fill', source:'openmaptiles', 'source-layer':'landcover',
+        filter:['in',['get','class'],['literal',['wood','forest']]],
+        paint:{ 'fill-color':'#131c15', 'fill-opacity':0.85, 'fill-antialias':false } },
+      { id:'lc-grass', type:'fill', source:'openmaptiles', 'source-layer':'landcover',
+        filter:['in',['get','class'],['literal',['grass','farmland','meadow']]],
+        paint:{ 'fill-color':'#13190f', 'fill-opacity':0.6, 'fill-antialias':false } },
+      { id:'lc-wetland', type:'fill', source:'openmaptiles', 'source-layer':'landcover',
+        filter:['==',['get','class'],'wetland'],
+        paint:{ 'fill-color':'#10211e', 'fill-opacity':0.7, 'fill-antialias':false } },
+      { id:'lu-residential', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
+        filter:['in',['get','class'],['literal',['residential','suburbs','neighbourhood']]],
+        paint:{ 'fill-color':'#15181d', 'fill-opacity':0.55, 'fill-antialias':false } },
+      { id:'lu-built', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
+        filter:['in',['get','class'],['literal',['commercial','retail','industrial']]],
+        paint:{ 'fill-color':'#191b21', 'fill-opacity':0.5, 'fill-antialias':false } },
+      { id:'lu-campus', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
+        filter:['in',['get','class'],['literal',['college','university','school','hospital']]],
+        paint:{ 'fill-color':'#162030', 'fill-opacity':0.5, 'fill-antialias':false } },
+      { id:'lu-green', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
+        filter:['in',['get','class'],['literal',['cemetery','stadium','pitch','playground','garden','zoo']]],
+        paint:{ 'fill-color':'#13211a', 'fill-opacity':0.6, 'fill-antialias':false } },
+      { id:'park', type:'fill', source:'openmaptiles', 'source-layer':'park',
+        paint:{ 'fill-color':'#122017', 'fill-opacity':0.55, 'fill-antialias':false } },
+
+      /* ---- relief ---- */
+      { id:'hillshade', type:'hillshade', source:'hillshade-dem',
+        paint:{
+          'hillshade-shadow-color':'#03050a',
+          'hillshade-highlight-color':'#43586d',
+          'hillshade-accent-color':'#0a0f16',
+          'hillshade-exaggeration':0.6,
+          'hillshade-illumination-direction':335
+        } },
+
+      /* ---- contours ---- */
+      { id:'contour-minor', type:'line', source:'contours', 'source-layer':'contours',
+        filter:['==',['get','level'],0],
+        paint:{ 'line-color':'rgba(125,211,252,0.13)', 'line-width':0.8 } },
+      { id:'contour-major', type:'line', source:'contours', 'source-layer':'contours',
+        filter:['>',['get','level'],0],
+        paint:{ 'line-color':'rgba(125,211,252,0.28)', 'line-width':1.4 } },
+      { id:'contour-label', type:'symbol', source:'contours', 'source-layer':'contours',
+        filter:['>',['get','level'],0], minzoom:12,
+        layout:{
+          'symbol-placement':'line',
+          'text-field':['concat',['number-format',['get','ele'],{}],' ft'],
+          'text-font':['Noto Sans Regular'], 'text-size':10, 'symbol-spacing':320
+        },
+        paint:{ 'text-color':'#6793ad', 'text-halo-color':BG, 'text-halo-width':1.4 } },
+
+      /* ---- water ---- */
+      { id:'water', type:'fill', source:'openmaptiles', 'source-layer':'water',
+        filter:['!=',['get','intermittent'],1],
+        paint:{ 'fill-color':'#16303f' } },
+      { id:'water-intermittent', type:'fill', source:'openmaptiles', 'source-layer':'water',
+        filter:['==',['get','intermittent'],1],
+        paint:{ 'fill-color':'#16303f', 'fill-opacity':0.55 } },
+      { id:'water-edge', type:'line', source:'openmaptiles', 'source-layer':'water',
+        paint:{ 'line-color':'#2e5a72', 'line-width':0.9 } },
+      { id:'waterway', type:'line', source:'openmaptiles', 'source-layer':'waterway',
+        paint:{
+          'line-color':'#264e63',
+          'line-width':['interpolate',['exponential',1.4],['zoom'], 9,0.6, 13,1.6, 16,3.2]
+        } },
+
+      /* ---- aeroway ---- */
+      { id:'aeroway-poly', type:'fill', source:'openmaptiles', 'source-layer':'aeroway',
+        filter:['==',['geometry-type'],'Polygon'],
+        paint:{ 'fill-color':'#1b1f26', 'fill-opacity':0.8 } },
+      { id:'aeroway-line', type:'line', source:'openmaptiles', 'source-layer':'aeroway',
+        filter:['==',['geometry-type'],'LineString'],
+        paint:{ 'line-color':'#2c333d',
+          'line-width':['interpolate',['exponential',1.4],['zoom'], 11,['match',['get','class'],'runway',3,1], 16,['match',['get','class'],'runway',18,5]] } },
+
+      /* ---- buildings ---- */
+      { id:'buildings', type:'fill', source:'openmaptiles', 'source-layer':'building', minzoom:13.5,
+        paint:{
+          'fill-color':'#1b2028', 'fill-outline-color':'#272e38',
+          'fill-opacity':['interpolate',['linear'],['zoom'], 13.5,0, 14.6,0.8]
+        } },
+
+      /* ---- roads ---- */
+      { id:'rd-minor-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:12,
+        filter:['all',['in',['get','class'],['literal',['minor','tertiary']]],['!=',['get','brunnel'],'tunnel']],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#05070a',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 12,1.2, 14,3, 18,15] } },
+      { id:'rd-minor', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:12,
+        filter:['all',['in',['get','class'],['literal',['minor','tertiary']]],['!=',['get','brunnel'],'tunnel']],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#272d36',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 12,0.6, 14,2, 18,12] } },
+      { id:'rd-service', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:14,
+        filter:['in',['get','class'],['literal',['service','track']]],
+        paint:{ 'line-color':'#21262e',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 14,0.6, 18,5] } },
+      { id:'rd-path', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:14,
+        filter:['==',['get','class'],'path'],
+        paint:{ 'line-color':'#3e4756', 'line-dasharray':[1.5,1.8],
+          'line-width':['interpolate',['linear'],['zoom'], 14,0.8, 18,2.2] } },
+
+      { id:'rd-sec-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:10,
+        filter:['==',['get','class'],'secondary'],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#05070a',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 10,1.4, 14,4.4, 18,19] } },
+      { id:'rd-sec', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:10,
+        filter:['==',['get','class'],'secondary'],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#363e4a',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 10,0.7, 14,3, 18,15] } },
+
+      { id:'rd-pri-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:8,
+        filter:['in',['get','class'],['literal',['primary','trunk']]],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#05070a',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 8,1.4, 12,3.8, 14,6, 18,23] } },
+      { id:'rd-pri', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:8,
+        filter:['in',['get','class'],['literal',['primary','trunk']]],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#4a5364',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 8,0.8, 12,2.5, 14,4.4, 18,18] } },
+
+      { id:'rd-mwy-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:6,
+        filter:['==',['get','class'],'motorway'],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#1f1607',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 6,1.6, 12,5, 14,7.5, 18,27] } },
+      { id:'rd-mwy', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:6,
+        filter:['==',['get','class'],'motorway'],
+        layout:{ 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#c98a2e',
+          'line-width':['interpolate',['exponential',1.5],['zoom'], 6,0.9, 12,3.2, 14,5.2, 18,21] } },
+
+      /* ---- railways ---- */
+      { id:'rail', type:'line', source:'openmaptiles', 'source-layer':'transportation',
+        filter:['==',['get','class'],'rail'],
+        paint:{ 'line-color':'#39414d',
+          'line-width':['interpolate',['linear'],['zoom'], 9,0.8, 14,1.6, 18,3] } },
+      { id:'rail-hatch', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:11,
+        filter:['==',['get','class'],'rail'],
+        paint:{ 'line-color':'#39414d', 'line-dasharray':[0.12, 3],
+          'line-width':['interpolate',['linear'],['zoom'], 11,4, 14,7, 18,12] } },
+
+      /* ---- boundaries ---- */
+      { id:'bdy-parish', type:'line', source:'openmaptiles', 'source-layer':'boundary',
+        filter:['all',['==',['get','admin_level'],6],['!=',['get','maritime'],1]],
+        paint:{ 'line-color':'#5b6678', 'line-width':1.6, 'line-dasharray':[5,2,1.5,2], 'line-opacity':0.6 } },
+      { id:'bdy-city', type:'line', source:'openmaptiles', 'source-layer':'boundary', minzoom:10,
+        filter:['all',['==',['get','admin_level'],8],['!=',['get','maritime'],1]],
+        paint:{ 'line-color':'#475266', 'line-width':1.1, 'line-dasharray':[3,2.2], 'line-opacity':0.55 } },
+
+      /* ---- names ---- */
+      { id:'lbl-road', type:'symbol', source:'openmaptiles', 'source-layer':'transportation_name', minzoom:13,
+        layout:{
+          'symbol-placement':'line', 'text-field':name,
+          'text-font':['Noto Sans Regular'], 'text-size':['interpolate',['linear'],['zoom'],13,10,17,13],
+          'symbol-spacing':380
+        },
+        paint:{ 'text-color':'#7e8a99', 'text-halo-color':BG, 'text-halo-width':1.6 } },
+      { id:'lbl-ref', type:'symbol', source:'openmaptiles', 'source-layer':'transportation_name', minzoom:9.5,
+        filter:['all', ['has','ref'], ['!=',['get','ref'],''],
+                ['in',['get','class'],['literal',['motorway','trunk','primary','secondary']]]],
+        layout:{
+          'symbol-placement':'line', 'symbol-spacing':340,
+          'text-rotation-alignment':'viewport', 'text-pitch-alignment':'viewport',
+          'text-field':['case',
+            ['==',['get','network'],'us-interstate'], ['concat','I-',['get','ref']],
+            ['==',['get','network'],'us-highway'],    ['concat','US ',['get','ref']],
+            ['==',['get','network'],'us-state'],      ['concat','LA ',['get','ref']],
+            ['get','ref']],
+          'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 9.5,9, 14,11.5],
+          'text-letter-spacing':0.04
+        },
+        paint:{ 'text-color':'#e8c074', 'text-halo-color':'#1a1408', 'text-halo-width':1.8 } },
+      { id:'lbl-water', type:'symbol', source:'openmaptiles', 'source-layer':'water_name',
+        layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':11.5 },
+        paint:{ 'text-color':'#6fb3d2', 'text-halo-color':BG, 'text-halo-width':1.4 } },
+      { id:'lbl-waterway', type:'symbol', source:'openmaptiles', 'source-layer':'waterway', minzoom:12.5,
+        filter:['has','name'],
+        layout:{ 'symbol-placement':'line', 'text-field':name, 'text-font':['Noto Sans Italic'],
+                 'text-size':10.5, 'symbol-spacing':420 },
+        paint:{ 'text-color':'#6fb3d2', 'text-halo-color':BG, 'text-halo-width':1.4 } },
+      { id:'lbl-poi-major', type:'symbol', source:'openmaptiles', 'source-layer':'poi', minzoom:13.5, maxzoom:15,
+        filter:['all',['has','name'],['<=',['get','rank'],7]],
+        layout:{ 'text-field':name, 'text-font':['Noto Sans Regular'], 'text-size':10.5,
+                 'text-max-width':8, 'text-padding':6 },
+        paint:{ 'text-color':'#76828f', 'text-halo-color':BG, 'text-halo-width':1.3 } },
+      { id:'lbl-poi', type:'symbol', source:'openmaptiles', 'source-layer':'poi', minzoom:15,
+        filter:['all',['has','name'],['<=',['get','rank'],14]],
+        layout:{ 'text-field':name, 'text-font':['Noto Sans Regular'], 'text-size':10.5,
+                 'text-max-width':8, 'text-padding':6 },
+        paint:{ 'text-color':'#76828f', 'text-halo-color':BG, 'text-halo-width':1.3 } },
+      { id:'lbl-hood', type:'symbol', source:'openmaptiles', 'source-layer':'place', minzoom:12.5,
+        filter:['in',['get','class'],['literal',['suburb','neighbourhood','quarter','hamlet']]],
+        layout:{ 'text-field':name, 'text-font':['Noto Sans Regular'], 'text-size':11,
+                 'text-letter-spacing':0.14, 'text-transform':'uppercase' },
+        paint:{ 'text-color':'#5f6c7c', 'text-halo-color':BG, 'text-halo-width':1.5 } },
+      { id:'lbl-village', type:'symbol', source:'openmaptiles', 'source-layer':'place',
+        filter:['==',['get','class'],'village'],
+        layout:{ 'text-field':name, 'text-font':['Noto Sans Regular'], 'text-size':12,
+                 'text-letter-spacing':0.08 },
+        paint:{ 'text-color':'#9aa7b5', 'text-halo-color':BG, 'text-halo-width':1.6 } },
+      { id:'lbl-town', type:'symbol', source:'openmaptiles', 'source-layer':'place',
+        filter:['in',['get','class'],['literal',['city','town']]],
+        layout:{
+          'text-field':name, 'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 9,13, 12,19, 14,24],
+          'text-letter-spacing':0.28, 'text-transform':'uppercase'
+        },
+        paint:{ 'text-color':'#dde4ec', 'text-halo-color':BG, 'text-halo-width':1.8 } },
+
+      /* ---- regional flourish ---- */
+      { id:'lbl-region', type:'symbol', source:'regions', maxzoom:13,
+        layout:{ 'text-field':['get','t'], 'text-font':['Noto Sans Regular'],
+                 'text-letter-spacing':0.5,
+                 'text-size':['interpolate',['linear'],['zoom'], 9,10, 12,13] },
+        paint:{ 'text-color':'#56657a', 'text-halo-color':BG, 'text-halo-width':1.4, 'text-opacity':0.9 } },
+
+      /* ---- curated landmarks: glowing dot + label ---- */
+      { id:'lm2-glow', type:'circle', source:'landmarks', minzoom:13,
+        filter:['==',['get','tier'],2],
+        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 13,9, 15,12],
+                'circle-color':['get','color'], 'circle-blur':1, 'circle-opacity':0.4,
+                'circle-pitch-alignment':'map' } },
+      { id:'lm2-dot', type:'circle', source:'landmarks', minzoom:13,
+        filter:['==',['get','tier'],2],
+        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 13,4, 15,5.5],
+                'circle-color':['get','color'],
+                'circle-stroke-color':'#0b0d10', 'circle-stroke-width':1.5,
+                'circle-pitch-alignment':'map' } },
+      { id:'lm2-label', type:'symbol', source:'landmarks', minzoom:13,
+        filter:['==',['get','tier'],2],
+        layout:{
+          'text-field':['get','short'], 'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 13,10.5, 15,12],
+          'text-letter-spacing':0.02,
+          'text-variable-anchor':['left','right','top','bottom'],
+          'text-radial-offset':0.8, 'text-justify':'auto', 'text-max-width':9
+        },
+        paint:{ 'text-color':'#eef2f6', 'text-halo-color':'#0b0d10', 'text-halo-width':1.8 } },
+      { id:'lm-glow', type:'circle', source:'landmarks',
+        filter:['==',['get','tier'],1],
+        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 10,8, 14,12],
+                'circle-color':['get','color'], 'circle-blur':1, 'circle-opacity':0.45,
+                'circle-pitch-alignment':'map' } },
+      { id:'lm-dot', type:'circle', source:'landmarks',
+        filter:['==',['get','tier'],1],
+        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 10,3.5, 14,5.5],
+                'circle-color':['get','color'],
+                'circle-stroke-color':'#0b0d10', 'circle-stroke-width':1.5,
+                'circle-pitch-alignment':'map' } },
+      { id:'lm-label', type:'symbol', source:'landmarks',
+        filter:['==',['get','tier'],1],
+        layout:{
+          'text-field':['get','short'], 'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 10,10, 14,12],
+          'text-letter-spacing':0.02,
+          'text-variable-anchor':['left','right','top','bottom'],
+          'text-radial-offset':0.8, 'text-justify':'auto', 'text-max-width':9
+        },
+        paint:{ 'text-color':'#eef2f6', 'text-halo-color':'#0b0d10', 'text-halo-width':1.8 } }
+    ]
+  };
+
+  var map = new maplibregl.Map({
+    container:'map',
+    style:style,
+    center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch, bearing:HOME.bearing,
+    minZoom:9, maxZoom:17.5, maxPitch:70, hash:true,
+    maxBounds:[[-93.45,32.0],[-91.85,33.05]],
+    attributionControl:{ compact:true, customAttribution:
+      '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &middot; Terrain: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Mapzen/AWS</a> (USGS, SRTM)' }
+  });
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+  map.addControl(new maplibregl.ScaleControl({ unit:'imperial', maxWidth:110 }), 'bottom-right');
+  if (!isNarrow) map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-right');
+
+  map.on('load', function(){
+    map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
+  });
+
+  /* ---------- landmark popups & panel list ---------- */
+  var openPopup = null;
+  function showLandmark(props, lngLat){
+    if (openPopup) openPopup.remove();
+    openPopup = new maplibregl.Popup({ offset:14, maxWidth:'270px' })
+      .setLngLat(lngLat)
+      .setHTML('<h3>'+props.name+'</h3><span class="pcat" style="color:'+props.color+'">'+props.cat+'</span><p>'+props.blurb+'</p>')
+      .addTo(map);
+  }
+  map.on('click', function(e){
+    if (!map.getLayer('lm-dot')) return;
+    var hits = map.queryRenderedFeatures(
+      [[e.point.x-6, e.point.y-6],[e.point.x+6, e.point.y+6]],
+      { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
+    if (hits.length) showLandmark(hits[0].properties, hits[0].geometry.coordinates);
+  });
+
+  var listEl = document.getElementById('lm-list');
+  LANDMARKS.forEach(function(lm){
+    var li = document.createElement('li');
+    li.innerHTML = '<span class="dot" style="background:'+CATS[lm.cat].hex+';color:'+CATS[lm.cat].hex+'"></span>'+
+                   '<span class="nm">'+lm.name+'</span><span class="cat">'+CATS[lm.cat].label+'</span>';
+    li.addEventListener('click', function(){
+      map.flyTo({ center:lm.lngLat, zoom:lm.zoom, duration:2200 });
+      showLandmark({ name:lm.name, cat:CATS[lm.cat].label, color:CATS[lm.cat].hex, blurb:lm.blurb }, lm.lngLat);
+    });
+    listEl.appendChild(li);
+  });
+
+  /* ---------- controls ---------- */
+  document.getElementById('tg-terrain').addEventListener('change', function(e){
+    if (e.target.checked) {
+      map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
+      map.easeTo({ pitch:isNarrow ? 45 : 52, duration:900 });
+    } else {
+      map.setTerrain(null);
+      map.easeTo({ pitch:0, duration:900 });
+    }
+  });
+  document.getElementById('tg-contours').addEventListener('change', function(e){
+    var v = e.target.checked ? 'visible' : 'none';
+    ['contour-minor','contour-major','contour-label'].forEach(function(id){
+      map.setLayoutProperty(id, 'visibility', v);
+    });
+  });
+  document.getElementById('tg-marks').addEventListener('change', function(e){
+    var v = e.target.checked ? 'visible' : 'none';
+    ['lm-glow','lm-dot','lm-label','lm2-glow','lm2-dot','lm2-label','lbl-region'].forEach(function(id){
+      map.setLayoutProperty(id, 'visibility', v);
+    });
+    if (!e.target.checked && openPopup) { openPopup.remove(); openPopup = null; }
+  });
+  document.getElementById('btn-reset').addEventListener('click', function(){
+    map.flyTo({ center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch, bearing:HOME.bearing, duration:2200 });
+  });
+
+  /* live elevation readout (true feet — exaggeration divided back out) + landmark cursor */
+  var readout = document.getElementById('elev-readout');
+  map.on('mousemove', function(e){
+    if (!map.getLayer('lm-dot')) return;
+    var hits = map.queryRenderedFeatures(e.point, { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
+    map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
+    if (!map.getTerrain()) { readout.style.display = 'none'; return; }
+    var z = map.queryTerrainElevation(e.lngLat);
+    if (z == null) { readout.style.display = 'none'; return; }
+    var ft = Math.round(z / EXAGGERATION * 3.28084 / 10) * 10;
+    readout.textContent = ft + ' ft elevation';
+    readout.style.display = 'block';
+  });
+  map.getCanvas().addEventListener('mouseleave', function(){ readout.style.display = 'none'; });
+
+  /* loading veil & warning if the street data is unreachable */
+  var veil = document.getElementById('veil');
+  map.once('idle', function(){ veil.classList.add('gone'); });
+  setTimeout(function(){ veil.classList.add('gone'); }, 12000);
+  var warned = false;
+  map.on('error', function(e){
+    var msg = e && e.error && e.error.message || '';
+    var url = e && (e.source && e.source.url || '');
+    if (!warned && (msg.indexOf('openfreemap') !== -1 || String(url).indexOf('openfreemap') !== -1)) {
+      warned = true;
+      document.getElementById('warn').style.display = 'block';
+    }
+  });
+})();
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ the table of contents.
 | Map | Path |
 |---|---|
 | **Ruston, Louisiana** — parchment tones, raised 3-D relief, contour lines, hatched railroads, and annotated landmarks across the piney hills of Lincoln Parish | [`ruston/`](ruston/) |
+| **Ruston — Midnight Edition** — the same town, terrain and verified landmarks in a modern idiom: dark basemap, glass UI, glowing category-colored markers | [`ruston-modern/`](ruston-modern/) |
 
 ## Viewing
 
