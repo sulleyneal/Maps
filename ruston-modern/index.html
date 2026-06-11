@@ -104,6 +104,22 @@
   }
   button.btn:hover{ background:rgba(255,255,255,.11); }
 
+  .sliders label{ display:block; padding:6px 10px 2px; }
+  .sliders .row{ display:flex; justify-content:space-between; align-items:baseline;
+    font-size:13px; font-weight:500; }
+  .sliders output{ font-size:11px; color:var(--txt-dim); font-variant-numeric:tabular-nums; }
+  .sliders input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:4px; border-radius:999px;
+    background:#2a313b; outline:none; margin:10px 0 6px; cursor:pointer;
+  }
+  .sliders input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+    background:#38bdf8; box-shadow:0 0 10px rgba(56,189,248,.55); border:none; cursor:pointer;
+  }
+  .sliders input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%; background:#38bdf8; border:none; cursor:pointer;
+  }
+
   .credits{ margin-top:18px; font-size:10.5px; line-height:1.7; color:var(--txt-faint); }
   .credits a{ color:#67b7dd; text-decoration:none; }
   #warn{ display:none; margin-top:12px; font-size:12px; color:#fda4af;
@@ -208,6 +224,16 @@
     <label>3D terrain <input type="checkbox" id="tg-terrain" checked></label>
     <label>Contour lines <input type="checkbox" id="tg-contours" checked></label>
     <label>Landmarks <input type="checkbox" id="tg-marks" checked></label>
+  </div>
+
+  <h2>Appearance</h2>
+  <div class="sliders">
+    <label><span class="row">Map brightness <output id="o-bright">40%</output></span>
+      <input type="range" id="sl-bright" min="0" max="100" value="40"></label>
+    <label><span class="row">Relief shading <output id="o-relief">70%</output></span>
+      <input type="range" id="sl-relief" min="0" max="100" value="70"></label>
+    <label><span class="row">Terrain height <output id="o-height">2.5&times;</output></span>
+      <input type="range" id="sl-height" min="10" max="40" value="25"></label>
   </div>
   <button class="btn" id="btn-reset">Reset view</button>
   <div id="warn">Street data couldn’t be reached — terrain is shown, but roads and water may be missing.
@@ -622,8 +648,81 @@
   map.addControl(new maplibregl.ScaleControl({ unit:'imperial', maxWidth:110 }), 'bottom-right');
   if (!isNarrow) map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-right');
 
+  /* ---------- appearance sliders ----------
+     Every layer's authored color is captured once; the brightness slider re-tints
+     them all live toward a light slate, so the whole basemap lightens in step.
+     Contours are left alone so the terrain reads better, not worse, when brighter. */
+  var PAINT_PROPS = ['background-color','fill-color','fill-outline-color','line-color',
+    'circle-stroke-color','text-halo-color',
+    'hillshade-shadow-color','hillshade-highlight-color','hillshade-accent-color'];
+  function parseColor(s){
+    if (s[0] === '#') return [parseInt(s.slice(1,3),16), parseInt(s.slice(3,5),16), parseInt(s.slice(5,7),16), 1];
+    var m = s.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+    return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
+  }
+  var BASE_PAINT = [];
+  style.layers.forEach(function(l){
+    if (!l.paint || l.id.indexOf('contour') === 0) return;
+    PAINT_PROPS.forEach(function(p){
+      var v = l.paint[p], c;
+      if (typeof v === 'string' && (c = parseColor(v))) BASE_PAINT.push([l.id, p, c]);
+    });
+  });
+  var DAY = [203, 213, 224];
+  function mixColor(c, t){
+    return 'rgba(' + Math.round(c[0] + (DAY[0]-c[0])*t) + ',' + Math.round(c[1] + (DAY[1]-c[1])*t) +
+           ',' + Math.round(c[2] + (DAY[2]-c[2])*t) + ',' + c[3] + ')';
+  }
+
+  var slBright = document.getElementById('sl-bright'),
+      slRelief = document.getElementById('sl-relief'),
+      slHeight = document.getElementById('sl-height'),
+      oBright = document.getElementById('o-bright'),
+      oRelief = document.getElementById('o-relief'),
+      oHeight = document.getElementById('o-height');
+  var styleReady = false;
+
+  try {
+    var prefs = JSON.parse(localStorage.getItem('ruston-midnight-prefs') || '{}');
+    if (prefs.b != null) slBright.value = prefs.b;
+    if (prefs.r != null) slRelief.value = prefs.r;
+    if (prefs.h != null) slHeight.value = prefs.h;
+  } catch (err) {}
+  function savePrefs(){
+    try { localStorage.setItem('ruston-midnight-prefs',
+      JSON.stringify({ b:+slBright.value, r:+slRelief.value, h:+slHeight.value })); } catch (err) {}
+  }
+
+  function applyBrightness(){
+    oBright.textContent = slBright.value + '%';
+    if (!styleReady) return;
+    var t = (+slBright.value / 100) * 0.5;
+    BASE_PAINT.forEach(function(e){ map.setPaintProperty(e[0], e[1], mixColor(e[2], t)); });
+  }
+  function applyRelief(){
+    oRelief.textContent = slRelief.value + '%';
+    if (!styleReady) return;
+    map.setPaintProperty('hillshade', 'hillshade-exaggeration', +slRelief.value / 100);
+  }
+  function applyHeight(){
+    EXAGGERATION = +slHeight.value / 10;
+    oHeight.textContent = EXAGGERATION.toFixed(1) + '×';
+    if (styleReady && document.getElementById('tg-terrain').checked) {
+      map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
+    }
+  }
+  slBright.addEventListener('input', function(){ applyBrightness(); savePrefs(); });
+  slRelief.addEventListener('input', function(){ applyRelief(); savePrefs(); });
+  slHeight.addEventListener('input', function(){ applyHeight(); savePrefs(); });
+  applyBrightness(); applyRelief(); applyHeight();   /* sync the readouts pre-load */
+
   map.on('load', function(){
-    map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
+    styleReady = true;
+    applyBrightness();
+    applyRelief();
+    if (document.getElementById('tg-terrain').checked) {
+      map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
+    }
   });
 
   /* ---------- landmark popups & panel list ---------- */
