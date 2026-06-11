@@ -1660,7 +1660,7 @@
         container: holder, style: st,
         bounds: map.getBounds(), fitBoundsOptions: { padding: 0 },
         bearing: 0, pitch: 0, interactive: false, attributionControl: false,
-        pixelRatio: 2, fadeDuration: 0
+        pixelRatio: 2, fadeDuration: 0, preserveDrawingBuffer: true
       });
     } catch (err) { return fail('Could not start the render \u2014 this device may be out of memory.'); }
     poStatus.textContent = 'Engraving at print resolution\u2026';
@@ -1671,6 +1671,10 @@
       if (done) return;
       done = true;
       clearTimeout(watchdog);
+      var snap = document.createElement('canvas');
+      var glc = pmap.getCanvas();
+      snap.width = glc.width; snap.height = glc.height;
+      snap.getContext('2d').drawImage(glc, 0, 0);
       (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function(){
         try {
           var c = document.createElement('canvas');
@@ -1678,7 +1682,7 @@
           var x = c.getContext('2d');
           x.fillStyle = P.bg;
           x.fillRect(0, 0, W, H);
-          x.drawImage(pmap.getCanvas(), m, m, mapWpx, mapHpx);
+          x.drawImage(snap, m, m, mapWpx, mapHpx);
 
           x.strokeStyle = ink; x.lineWidth = Math.max(2, W/1200);
           x.strokeRect(m, m, mapWpx, mapHpx);
