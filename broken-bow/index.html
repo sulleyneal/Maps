@@ -263,6 +263,32 @@
   #cartouche .t1{ font-family:var(--font-display); font-size:13px; letter-spacing:.18em; }
   #cartouche .t2{ font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft); margin-top:2px; }
 
+  /* poster export dialog */
+  #poster-veil{
+    position:fixed; inset:0; z-index:20; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.45); padding:18px;
+  }
+  #poster-box{
+    width:380px; max-width:100%; max-height:90vh; overflow-y:auto;
+    background:var(--panel-bg); border:1px solid var(--panel-border); border-radius:var(--panel-radius);
+    box-shadow:var(--panel-shadow); padding:20px 20px 16px;
+  }
+  body.ui-modern #poster-box{ -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); }
+  #poster-box h3{ margin:0 0 12px; font-family:var(--font-display); font-size:18px; font-weight:600; }
+  .pf{ display:block; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:10px; }
+  .pf input, .pf select{
+    display:block; width:100%; margin-top:4px; padding:8px 10px;
+    font:14px var(--font-body); color:var(--ink);
+    background:var(--chip-bg); border:1px solid var(--panel-border); border-radius:10px;
+  }
+  .po-checks{ display:flex; gap:14px; font-size:13px; margin:2px 0 10px; flex-wrap:wrap; }
+  .po-checks label{ display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .po-checks input{ accent-color:var(--accent); margin:0; }
+  .po-actions{ display:flex; gap:10px; }
+  .po-actions .btn{ margin-top:6px; }
+  #po-status{ min-height:16px; margin:8px 0 0; }
+
   /* live conditions */
   #cond-rows .crow{ display:flex; align-items:baseline; gap:8px; padding:7px 4px;
     border-bottom:1px dotted var(--rule); font-size:13.5px; }
@@ -496,6 +522,7 @@
         <input type="range" id="sl-height" min="10" max="40" value="18"></label>
     </div>
     <button class="btn" id="btn-reset">Return to the full prospect</button>
+    <button class="btn" id="btn-poster">Export a poster&hellip;</button>
     <div id="warn">The street survey could not be reached &mdash; the terrain is drawn, but roads and water may be
     missing. Check your connection and reload.</div>
 
@@ -508,6 +535,32 @@
     </div>
   </div>
 </aside>
+
+<div id="poster-veil">
+  <div id="poster-box">
+    <h3>Export a poster</h3>
+    <label class="pf">Title <input id="po-title" maxlength="40"></label>
+    <label class="pf">Subtitle <input id="po-sub" maxlength="80"></label>
+    <label class="pf">Size <select id="po-size">
+      <option value="2700x3600">Portrait &mdash; 18 &times; 24 in &middot; 150 dpi</option>
+      <option value="3600x2700">Landscape &mdash; 24 &times; 18 in &middot; 150 dpi</option>
+      <option value="3000x3000">Square &mdash; 20 &times; 20 in &middot; 150 dpi</option>
+      <option value="1800x2400">Small portrait &mdash; 12 &times; 16 in &middot; 150 dpi</option>
+    </select></label>
+    <div class="po-checks">
+      <label><input type="checkbox" id="po-ct" checked> Contours</label>
+      <label><input type="checkbox" id="po-tr" checked> Trails</label>
+      <label><input type="checkbox" id="po-lm"> Landmarks</label>
+    </div>
+    <p class="hint">Drawn from your current view &mdash; north-up and flat, in the current edition.
+    Large renders can take 10&ndash;30 seconds while tiles load at print resolution.</p>
+    <div class="po-actions">
+      <button class="btn" id="po-cancel">Cancel</button>
+      <button class="btn" id="po-go">Render &amp; download</button>
+    </div>
+    <p class="hint" id="po-status"></p>
+  </div>
+</div>
 
 <div id="trail-card">
   <button id="tc-close" aria-label="Close">&times;</button>
@@ -1532,6 +1585,165 @@
   });
   document.getElementById('btn-reset').addEventListener('click', function(){
     map.flyTo({ center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch, bearing:HOME.bearing, duration:2200 });
+  });
+
+  /* ---------- poster export ---------- */
+  var poVeil = document.getElementById('poster-veil'),
+      poStatus = document.getElementById('po-status'),
+      poGo = document.getElementById('po-go');
+  var poBusy = false;
+
+  document.getElementById('btn-poster').addEventListener('click', function(){
+    document.getElementById('po-title').value =
+      document.querySelector('#panel h1').textContent.trim();
+    document.getElementById('po-sub').value =
+      document.querySelector('#panel .eyebrow').textContent.replace(/\s+/g, ' ').trim();
+    document.getElementById('po-ct').checked = document.getElementById('tg-contours').checked;
+    poStatus.textContent = '';
+    poVeil.style.display = 'flex';
+  });
+  document.getElementById('po-cancel').addEventListener('click', function(){
+    if (!poBusy) poVeil.style.display = 'none';
+  });
+  poVeil.addEventListener('click', function(e){
+    if (e.target === poVeil && !poBusy) poVeil.style.display = 'none';
+  });
+
+  function niceScale(mapWpx, mppCanvas){
+    var targetMi = (mapWpx * 0.14) * mppCanvas / 1609.34;
+    var steps = [0.25, 0.5, 1, 2, 5, 10, 20];
+    var mi = steps[0];
+    for (var i = 0; i < steps.length; i++) if (steps[i] <= targetMi) mi = steps[i];
+    return { mi: mi, px: mi * 1609.34 / mppCanvas };
+  }
+
+  poGo.addEventListener('click', function(){
+    if (poBusy) return;
+    poBusy = true;
+    poGo.disabled = true;
+    poStatus.textContent = 'Preparing the plates\u2026';
+
+    var dims = document.getElementById('po-size').value.split('x');
+    var W = +dims[0], H = +dims[1];
+    if (isNarrow && W * H > 8e6) { W = Math.round(W * 0.66 / 2) * 2; H = Math.round(H * 0.66 / 2) * 2;
+      poStatus.textContent = 'Reduced size for this device\u2026'; }
+
+    var P = PALETTES[theme];
+    var ink = P.townText, soft = P.roadText;
+    var m = Math.round(W * 0.07);
+    var band = Math.round(H * 0.16);
+    var mapWpx = Math.floor((W - 2 * m) / 2) * 2;
+    var mapHpx = Math.floor((H - 2 * m - band) / 2) * 2;
+
+    var st = makeStyle(theme);
+    var drop = [];
+    if (!document.getElementById('po-ct').checked) drop = drop.concat(['contour-minor','contour-major','contour-label']);
+    if (!document.getElementById('po-tr').checked) drop = drop.concat(['trail-case','trail-line']);
+    if (!document.getElementById('po-lm').checked) drop = drop.concat(['lm-glow','lm2-glow','lm-dot','lm-label','lm2-dot','lm2-label']);
+    st.layers = st.layers.filter(function(l){ return drop.indexOf(l.id) === -1; });
+
+    var holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-100000px;top:0;width:' + (mapWpx/2) + 'px;height:' + (mapHpx/2) + 'px;';
+    document.body.appendChild(holder);
+
+    var pmap, done = false, watchdog;
+    function fail(msg){
+      if (done) return;
+      done = true;
+      try { if (pmap) pmap.remove(); } catch (err) {}
+      holder.remove();
+      poBusy = false; poGo.disabled = false;
+      poStatus.textContent = msg;
+    }
+    try {
+      pmap = new maplibregl.Map({
+        container: holder, style: st,
+        bounds: map.getBounds(), fitBoundsOptions: { padding: 0 },
+        bearing: 0, pitch: 0, interactive: false, attributionControl: false,
+        pixelRatio: 2, fadeDuration: 0
+      });
+    } catch (err) { return fail('Could not start the render \u2014 this device may be out of memory.'); }
+    poStatus.textContent = 'Engraving at print resolution\u2026';
+    watchdog = setTimeout(function(){ compose(); }, 45000);
+    pmap.once('idle', function(){ setTimeout(compose, 300); });
+
+    function compose(){
+      if (done) return;
+      done = true;
+      clearTimeout(watchdog);
+      (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function(){
+        try {
+          var c = document.createElement('canvas');
+          c.width = W; c.height = H;
+          var x = c.getContext('2d');
+          x.fillStyle = P.bg;
+          x.fillRect(0, 0, W, H);
+          x.drawImage(pmap.getCanvas(), m, m, mapWpx, mapHpx);
+
+          x.strokeStyle = ink; x.lineWidth = Math.max(2, W/1200);
+          x.strokeRect(m, m, mapWpx, mapHpx);
+          if (theme === 'antique') {
+            x.lineWidth = Math.max(1, W/2400);
+            var g = Math.round(W*0.008);
+            x.strokeRect(m - g, m - g, mapWpx + 2*g, mapHpx + 2*g);
+          }
+
+          var classic = THEME_UI[theme].indexOf('ui-classic') !== -1;
+          var dispFont = classic ? '"IM Fell English", serif' : '"Space Grotesk", sans-serif';
+          var bodyFont = classic ? '"EB Garamond", serif' : '"Inter", sans-serif';
+          var cy = m + mapHpx;
+          x.textAlign = 'center';
+          x.fillStyle = ink;
+          try { x.letterSpacing = (W*0.012) + 'px'; } catch (err) {}
+          x.font = (classic ? '400 ' : '700 ') + Math.round(W*0.052) + 'px ' + dispFont;
+          var title = (document.getElementById('po-title').value || 'UNTITLED').toUpperCase();
+          x.fillText(title, W/2 + (W*0.006), cy + band*0.42);
+          try { x.letterSpacing = (W*0.004) + 'px'; } catch (err) {}
+          x.fillStyle = soft;
+          x.font = (classic ? 'italic ' : '') + Math.round(W*0.016) + 'px ' + bodyFont;
+          x.fillText(document.getElementById('po-sub').value, W/2, cy + band*0.62);
+
+          var ctr = map.getCenter();
+          function dms(v, pos, neg){
+            var a = Math.abs(v), d = Math.floor(a), mn = Math.round((a-d)*60);
+            return d + '\u00b0' + (mn < 10 ? '0' : '') + mn + '\u2032' + (v >= 0 ? pos : neg);
+          }
+          var meta = dms(ctr.lat,'N','S') + ' \u00b7 ' + dms(ctr.lng,'E','W') + '   \u00b7   ' +
+                     theme.toUpperCase() + ' EDITION   \u00b7   OPENSTREETMAP \u00b7 USGS \u00b7 MMXXVI';
+          x.font = Math.round(W*0.011) + 'px ' + bodyFont;
+          x.fillText(meta, W/2, cy + band*0.80);
+          try { x.letterSpacing = '0px'; } catch (err) {}
+
+          var mppCanvas = 156543.03392 * Math.cos(ctr.lat * Math.PI/180) / Math.pow(2, pmap.getZoom()) / 2;
+          var sc = niceScale(mapWpx, mppCanvas);
+          var sx = m, sy = cy + band*0.78, sh = Math.max(4, H/900);
+          x.fillStyle = ink;
+          x.fillRect(sx, sy, sc.px/2, sh);
+          x.strokeStyle = ink; x.lineWidth = Math.max(1, W/3000);
+          x.strokeRect(sx, sy, sc.px, sh);
+          x.textAlign = 'left';
+          x.font = Math.round(W*0.011) + 'px ' + bodyFont;
+          x.fillText(sc.mi + (sc.mi === 1 ? ' mile' : ' miles'), sx, sy - sh*1.6);
+
+          poStatus.textContent = 'Pressing the print\u2026';
+          c.toBlob(function(blob){
+            try { pmap.remove(); } catch (err) {}
+            holder.remove();
+            poBusy = false; poGo.disabled = false;
+            if (!blob) { poStatus.textContent = 'The render came back empty \u2014 try a smaller size.'; return; }
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'map') +
+                         '-' + theme + '-poster.png';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+            poStatus.textContent = 'Done \u2014 check your downloads.';
+          }, 'image/png');
+        } catch (err) {
+          fail('Render failed \u2014 try a smaller size. (' + err.message + ')');
+        }
+      });
+    }
   });
 
   /* compass rose (antique) follows the bearing; click to face north */
