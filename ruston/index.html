@@ -212,6 +212,8 @@
     </div>
 
     <h2>Landmarks</h2>
+    <p class="small" style="margin:0 0 6px">Tap any entry to visit it. The finer points &mdash; theaters, museums,
+    trailheads &mdash; ink themselves in as you zoom closer.</p>
     <ul class="lm-list" id="lm-list"></ul>
 
     <h2>The Lay of the Land</h2>
@@ -238,6 +240,7 @@
       Streets, waters &amp; names from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
       contributors, served by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>.<br>
       Elevations from USGS&nbsp;3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain&nbsp;Tiles on AWS</a> (Mapzen).<br>
+      Landmark positions verified against <a href="https://overturemaps.org" target="_blank" rel="noopener">Overture&nbsp;Maps</a> data.<br>
       Drawn with MapLibre&nbsp;GL &middot; MMXXVI
     </div>
   </div>
@@ -314,31 +317,62 @@
     overzoom: 1
   });
 
-  /* ---------- curated landmarks (rendered as native map symbols, so they collide & anchor properly) ---------- */
+  /* ---------- curated landmarks (rendered as native map symbols, so they collide & anchor properly)
+       Coordinates verified against the Overture Maps places dataset (May 2026 release). ---------- */
   var CATS = {
-    heritage:  { label:'Heritage',  hex:'#9a3b2e' },
-    education: { label:'Education', hex:'#3f5573' },
-    nature:    { label:'Nature',    hex:'#5c7345' },
-    transport: { label:'Transport', hex:'#8a6f4d' }
+    heritage:  { label:'Heritage',   hex:'#9a3b2e' },
+    culture:   { label:'Culture',    hex:'#6e4a72' },
+    education: { label:'Education',  hex:'#3f5573' },
+    nature:    { label:'Recreation', hex:'#5c7345' },
+    transport: { label:'Transport',  hex:'#8a6f4d' }
   };
+  /* tier 1 shows at every zoom; tier 2 joins in as you close past zoom 13 */
   var LANDMARKS = [
-    { name:'Downtown & Railroad District', short:'Downtown', cat:'heritage', lngLat:[-92.6374, 32.5232], zoom:15.2,
-      blurb:'Brick storefronts of the 1890s–1920s face the old Vicksburg, Shreveport & Pacific tracks that gave Ruston its start in 1884. Home of the Dixie Center for the Arts and, each June, the Louisiana Peach Festival.' },
-    { name:'Louisiana Tech University', short:'Louisiana Tech', cat:'education', lngLat:[-92.6438, 32.5277], zoom:14.6,
-      blurb:'Founded in 1894 as the Industrial Institute and College of Louisiana; today about 11,000 students. Wyly Tower rises over the Quad, and the Bulldogs play at Joe Aillet Stadium on the north side of campus.' },
-    { name:'Grambling State University', short:'Grambling State', cat:'education', lngLat:[-92.7158, 32.5253], zoom:14.4,
-      blurb:'Historically Black university founded in 1901, four miles west of Ruston. Its Tigers were coached for more than half a century by the legendary Eddie Robinson.' },
-    { name:'Lincoln Parish Park', short:'Lincoln Parish Park', cat:'nature', lngLat:[-92.6402, 32.5969], zoom:14.4,
-      blurb:'Wooded hills around a small lake north of town, with a sandy swim beach and a mountain-bike loop that draws riders from far beyond Louisiana.' },
-    { name:'Lincoln Parish Museum', short:'Parish Museum', cat:'heritage', lngLat:[-92.6368, 32.5293], zoom:15.5,
-      blurb:'A late-1800s home on North Vienna Street kept as a museum of parish history, a short walk north of the courthouse square.' },
-    { name:'Ruston Regional Airport', short:'Ruston Airport', cat:'transport', lngLat:[-92.5880, 32.5146], zoom:13.8,
-      blurb:'The city’s general-aviation field (RSN) on the eastern edge of town, just south of US 80 — the old Dixie Overland Highway.' }
+    { name:'Downtown & Railroad District', short:'Downtown', cat:'heritage', tier:1, lngLat:[-92.6385, 32.5278], zoom:15.2,
+      blurb:'Brick storefronts of the 1890s–1920s face the old Vicksburg, Shreveport & Pacific tracks that gave Ruston its start in 1884. Murals, shops and cafés now fill the blocks either side of the rails.' },
+    { name:'Dixie Center for the Arts', short:'Dixie Theater', cat:'culture', tier:2, lngLat:[-92.6378, 32.5301], zoom:15.6,
+      blurb:'A 1928 movie house on North Vienna Street — the Astor, then the Rialto, then the Dixie — listed on the National Register in 1993 and restored as the parish’s performing-arts home.' },
+    { name:'Railroad Park', short:'Railroad Park', cat:'culture', tier:2, lngLat:[-92.6387, 32.5288], zoom:15.6,
+      blurb:'The downtown green beside the tracks at West Park Avenue — stage, splash pad and festival ground, busiest each June when the Louisiana Peach Festival takes over the district.' },
+    { name:'Ruston Farmers Market', short:'Farmers Market', cat:'culture', tier:2, lngLat:[-92.6355, 32.5293], zoom:15.6,
+      blurb:'Saturday-morning market on East Mississippi Avenue where parish growers sell produce, eggs and — in early summer — the peaches Ruston is famous for.' },
+    { name:'Lincoln Parish Courthouse', short:'Courthouse', cat:'heritage', tier:2, lngLat:[-92.6388, 32.5267], zoom:15.6,
+      blurb:'The parish has been judged and governed from this square on West Texas Avenue since the seat moved here from old Vienna in 1884.' },
+    { name:'Lincoln Parish Museum', short:'Parish Museum', cat:'heritage', tier:2, lngLat:[-92.6379, 32.5342], zoom:15.5,
+      blurb:'A late-1800s home on North Vienna Street kept as a museum of parish life, a short walk north of the courthouse square.' },
+    { name:'North Louisiana Military Museum', short:'Military Museum', cat:'heritage', tier:2, lngLat:[-92.6331, 32.5305], zoom:15.5,
+      blurb:'Uniforms, weapons, vehicles and first-hand stories of North Louisiana service members across two centuries of American conflicts, on Memorial Drive.' },
+    { name:'Louisiana Tech University', short:'Louisiana Tech', cat:'education', tier:1, lngLat:[-92.6462, 32.5271], zoom:14.6,
+      blurb:'Founded in 1894 as the Industrial Institute and College of Louisiana; today about 11,000 students. Keeny Hall and Howard Auditorium anchor the historic Quad.' },
+    { name:'Joe Aillet Stadium', short:'Aillet Stadium', cat:'nature', tier:2, lngLat:[-92.6559, 32.5321], zoom:15,
+      blurb:'Home of the Tech Bulldogs since 1968, on the north side of campus along West Alabama Avenue — Terry Bradshaw threw here before Pittsburgh.' },
+    { name:'Grambling State University', short:'Grambling State', cat:'education', tier:1, lngLat:[-92.7170, 32.5180], zoom:14.4,
+      blurb:'Historically Black university founded in 1901, four miles west of Ruston, famed for its Tigers and the World Famed Tiger Marching Band.' },
+    { name:'Eddie G. Robinson Museum', short:'Robinson Museum', cat:'heritage', tier:2, lngLat:[-92.7145, 32.5258], zoom:15.2,
+      blurb:'A Louisiana state museum on the Grambling campus honoring Coach Eddie Robinson, who won 408 games in 56 seasons and sent more than 200 players to the pros.' },
+    { name:'Robinson Memorial Stadium', short:'Robinson Stadium', cat:'nature', tier:2, lngLat:[-92.7212, 32.5208], zoom:15,
+      blurb:'Eddie G. Robinson Memorial Stadium, where the Grambling Tigers play — named for the coach who built the program into a legend.' },
+    { name:'Lincoln Parish Park', short:'Lincoln Parish Park', cat:'nature', tier:1, lngLat:[-92.6061, 32.5890], zoom:14.4,
+      blurb:'Wooded hills around a small lake northeast of town, with a sandy swim beach, campground and a mountain-bike loop that draws riders from far beyond Louisiana.' },
+    { name:'Rock Island Greenway', short:'Rock Island Greenway', cat:'nature', tier:2, lngLat:[-92.6440, 32.5411], zoom:15,
+      blurb:'A rails-to-trails path on the old Chicago, Rock Island & Pacific roadbed — the town’s second railroad — threading the neighborhoods north of downtown.' },
+    { name:'Hideaway Park', short:'Hideaway Park', cat:'nature', tier:2, lngLat:[-92.6598, 32.5346], zoom:15,
+      blurb:'Garland Gregory Hideaway Park — a wooded city park on the west side with a disc-golf course looping through the pines.' },
+    { name:'Ruston Sports Complex', short:'Sports Complex', cat:'nature', tier:1, lngLat:[-92.6348, 32.5056], zoom:14.6,
+      blurb:'Tournament-scale ballfields and courts on Champions Way off US 167, south of the interstate — the city’s big draw for traveling teams.' },
+    { name:'Mitcham Farms Orchard', short:'Mitcham Farms', cat:'nature', tier:1, lngLat:[-92.6836, 32.5667], zoom:14.6,
+      blurb:'Louisiana’s largest peach orchard, in the Mitcham family for some seventy years, in the hills northwest of town — the fruit behind the Peach Festival. The farm store opens in summer.' },
+    { name:'Autrey House Museum', short:'Autrey House', cat:'heritage', tier:1, lngLat:[-92.6755, 32.7008], zoom:15,
+      blurb:'An 1849 dogtrot farmhouse on LA 151 near Dubach — among the oldest buildings in the parish, on the National Register, kept as a museum of pioneer life.' },
+    { name:'Visitor Center & Chamber', short:'Visitor Center', cat:'culture', tier:2, lngLat:[-92.6412, 32.5526], zoom:15,
+      blurb:'The Ruston–Lincoln Convention & Visitors Bureau on North Trenton Street — maps, peach-season news and a friendly word on where to start.' },
+    { name:'Ruston Regional Airport', short:'Ruston Airport', cat:'transport', tier:1, lngLat:[-92.5911, 32.5087], zoom:13.8,
+      blurb:'The city’s general-aviation field (RSN) on Flight Line Drive, southeast of downtown.' }
   ];
   var lmGeo = { type:'FeatureCollection', features: LANDMARKS.map(function(lm, i){
     return { type:'Feature', id:i, geometry:{ type:'Point', coordinates:lm.lngLat },
              properties:{ name:lm.name, short:lm.short, cat:CATS[lm.cat].label,
-                          color:CATS[lm.cat].hex, blurb:lm.blurb } };
+                          color:CATS[lm.cat].hex, blurb:lm.blurb, tier:lm.tier } };
   }) };
   var regionGeo = { type:'FeatureCollection', features:[
     { type:'Feature', geometry:{ type:'Point', coordinates:[-92.665, 32.648] },
@@ -592,7 +626,27 @@
         paint:{ 'text-color':'#8a7553', 'text-halo-color':PAPER, 'text-halo-width':1.5, 'text-opacity':0.85 } },
 
       /* ---- curated landmarks: an inked dot with a small annotation beside it ---- */
+      { id:'lm2-dot', type:'circle', source:'landmarks', minzoom:13,
+        filter:['==',['get','tier'],2],
+        paint:{
+          'circle-radius':['interpolate',['linear'],['zoom'], 13,4.5, 15,6],
+          'circle-color':['get','color'],
+          'circle-stroke-color':INK, 'circle-stroke-width':1.25,
+          'circle-pitch-alignment':'map'
+        } },
+      { id:'lm2-label', type:'symbol', source:'landmarks', minzoom:13,
+        filter:['==',['get','tier'],2],
+        layout:{
+          'text-field':['get','short'],
+          'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 13,10.5, 15,12],
+          'text-transform':'uppercase', 'text-letter-spacing':0.08,
+          'text-variable-anchor':['left','right','top','bottom'],
+          'text-radial-offset':0.75, 'text-justify':'auto', 'text-max-width':9
+        },
+        paint:{ 'text-color':INK, 'text-halo-color':'#f6eed9', 'text-halo-width':2 } },
       { id:'lm-dot', type:'circle', source:'landmarks',
+        filter:['==',['get','tier'],1],
         paint:{
           'circle-radius':['interpolate',['linear'],['zoom'], 10,3.5, 14,6],
           'circle-color':['get','color'],
@@ -600,6 +654,7 @@
           'circle-pitch-alignment':'map'
         } },
       { id:'lm-label', type:'symbol', source:'landmarks',
+        filter:['==',['get','tier'],1],
         layout:{
           'text-field':['get','short'],
           'text-font':['Noto Sans Bold'],
@@ -641,7 +696,8 @@
   map.on('click', function(e){
     if (!map.getLayer('lm-dot')) return;
     var hits = map.queryRenderedFeatures(
-      [[e.point.x-6, e.point.y-6],[e.point.x+6, e.point.y+6]], { layers:['lm-dot','lm-label'] });
+      [[e.point.x-6, e.point.y-6],[e.point.x+6, e.point.y+6]],
+      { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
     if (hits.length) showLandmark(hits[0].properties, hits[0].geometry.coordinates);
   });
 
@@ -675,7 +731,7 @@
   });
   document.getElementById('tg-marks').addEventListener('change', function(e){
     var v = e.target.checked ? 'visible' : 'none';
-    ['lm-dot','lm-label','lbl-region'].forEach(function(id){
+    ['lm-dot','lm-label','lm2-dot','lm2-label','lbl-region'].forEach(function(id){
       map.setLayoutProperty(id, 'visibility', v);
     });
     if (!e.target.checked && openPopup) { openPopup.remove(); openPopup = null; }
@@ -694,7 +750,7 @@
   var readout = document.getElementById('elev-readout');
   map.on('mousemove', function(e){
     if (!map.getLayer('lm-dot')) return;
-    var hits = map.queryRenderedFeatures(e.point, { layers:['lm-dot','lm-label'] });
+    var hits = map.queryRenderedFeatures(e.point, { layers:['lm-dot','lm-label','lm2-dot','lm2-label'] });
     map.getCanvas().style.cursor = hits.length ? 'pointer' : '';
     if (!map.getTerrain()) { readout.style.display = 'none'; return; }
     var z = map.queryTerrainElevation(e.lngLat);
