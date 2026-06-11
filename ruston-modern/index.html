@@ -171,6 +171,21 @@
     font-family:'Inter',sans-serif; }
   .maplibregl-ctrl-attrib a{ color:#8b97a5 !important; }
 
+  /* view switcher */
+  #edition{
+    position:absolute; z-index:5; top:16px; left:50%; transform:translateX(-50%);
+    display:flex; background:var(--glass); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+    border:1px solid var(--line); border-radius:999px; padding:3px;
+    box-shadow:0 8px 28px rgba(0,0,0,.45);
+  }
+  #edition a, #edition span{
+    font:600 11px 'Inter',sans-serif; letter-spacing:.1em; text-transform:uppercase;
+    padding:7px 14px; border-radius:999px; text-decoration:none; white-space:nowrap;
+  }
+  #edition span{ color:#0b0d10; background:linear-gradient(92deg,#7dd3fc,#34d399); }
+  #edition a{ color:var(--txt-dim); }
+  #edition a:hover{ color:var(--txt); }
+
   /* mobile: bottom sheet */
   @media (max-width:760px){
     #panel{
@@ -181,13 +196,18 @@
     #panel::before{ content:""; display:block; width:42px; height:4px; border-radius:999px;
       background:#2a313b; margin:0 auto 12px; }
     h1{ font-size:32px }
-    #elev-readout{ bottom:auto; top:14px; left:14px; }
+    #elev-readout{ bottom:auto; top:62px; left:14px; }
   }
 </style>
 </head>
 <body>
 
 <div id="map"></div>
+
+<nav id="edition" aria-label="Map edition">
+  <a id="to-antique" href="../ruston/">Antique</a>
+  <span>Midnight</span>
+</nav>
 
 <aside id="panel">
   <span class="eyebrow">Lincoln Parish &middot; Louisiana</span>
@@ -795,6 +815,12 @@
     readout.style.display = 'block';
   });
   map.getCanvas().addEventListener('mouseleave', function(){ readout.style.display = 'none'; });
+
+  /* the edition switch carries the current camera across via the URL hash */
+  document.getElementById('to-antique').addEventListener('click', function(e){
+    e.preventDefault();
+    window.location.href = '../ruston/' + window.location.hash;
+  });
 
   /* loading veil & warning if the street data is unreachable */
   var veil = document.getElementById('veil');
