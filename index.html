@@ -3,669 +3,72 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ruston, Louisiana — A Living Chart</title>
-<meta name="description" content="An interactive terrain chart of Ruston and Lincoln Parish, Louisiana, drawn from OpenStreetMap surveys and USGS elevations.">
-<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<title>The Atlas</title>
+<meta name="description" content="A small collection of living charts — interactive, antique-styled maps drawn from public data.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --paper:#efe5cd; --paper-deep:#e7dabb; --card:#f4ecd8; --ink:#3f3322; --ink-soft:#6d5c41;
-    --rule:#b9a47e; --accent:#9a3b2e;
-    --c-heritage:#9a3b2e; --c-education:#3f5573; --c-nature:#5c7345; --c-transport:#8a6f4d;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
+  :root{ --paper:#efe5cd; --card:#f4ecd8; --ink:#3f3322; --ink-soft:#6d5c41; --rule:#b9a47e; --accent:#9a3b2e; }
+  *{ box-sizing:border-box }
+  html,body{ height:100%; margin:0 }
   body{
-    display:flex; background:var(--paper-deep); color:var(--ink);
-    font-family:'EB Garamond', Georgia, 'Times New Roman', serif; overflow:hidden;
-  }
-
-  /* ============ side panel ============ */
-  #panel{
-    width:348px; min-width:348px; height:100%; overflow-y:auto; position:relative; z-index:5;
+    display:flex; align-items:center; justify-content:center; padding:28px 18px;
     background:
-      radial-gradient(ellipse at 30% 8%, rgba(255,252,238,.8), rgba(255,252,238,0) 60%),
-      var(--card);
-    border-right:1px solid #a78d63;
-    box-shadow:4px 0 18px rgba(70,50,20,.25);
-    padding:26px 26px 18px;
-    scrollbar-width:thin; scrollbar-color:var(--rule) transparent;
+      radial-gradient(ellipse at 50% 0%, rgba(255,252,238,.7), rgba(255,252,238,0) 65%),
+      var(--paper);
+    color:var(--ink); font-family:'EB Garamond', Georgia, serif;
   }
-  #panel .frame{
-    border:1px solid var(--rule); outline:1px solid var(--rule); outline-offset:3px;
-    padding:20px 18px 14px;
-  }
-  .eyebrow{
-    font-size:11px; letter-spacing:.32em; text-transform:uppercase; color:var(--accent);
-    text-align:center; margin:0 0 10px;
-  }
-  .eyebrow .sep{color:var(--rule)}
-  h1{
-    font-family:'IM Fell English','EB Garamond',serif; font-weight:400;
-    font-size:46px; letter-spacing:.12em; text-align:center; margin:0; line-height:1;
-    color:var(--ink);
-  }
-  .tagline{
-    font-style:italic; text-align:center; font-size:15px; color:var(--ink-soft);
-    margin:10px 0 0; line-height:1.45;
-  }
-  .flourish{ text-align:center; color:var(--rule); font-size:15px; margin:12px 0; letter-spacing:.6em; }
-  .about{ font-size:14.5px; line-height:1.62; margin:0 0 10px; text-align:justify; hyphens:auto; }
-  .about:first-letter{
-    font-family:'IM Fell English',serif; font-size:34px; line-height:.85; float:left;
-    padding:3px 6px 0 0; color:var(--accent);
-  }
-
-  h2{
-    font-size:12px; letter-spacing:.26em; text-transform:uppercase; font-weight:600;
-    color:var(--ink); margin:22px 0 10px; display:flex; align-items:center; gap:10px;
-  }
-  h2::before, h2::after{content:""; height:1px; background:var(--rule); flex:1}
-
-  .facts{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-size:13.5px; }
-  .facts div{ border-left:2px solid var(--rule); padding-left:9px; }
-  .facts b{ display:block; font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--ink-soft); font-weight:600; }
-
-  .lm-list{ list-style:none; margin:0; padding:0; font-size:14px; }
-  .lm-list li{
-    display:flex; align-items:baseline; gap:9px; padding:6px 4px; cursor:pointer;
-    border-bottom:1px dotted var(--rule);
-  }
-  .lm-list li:hover{ background:rgba(154,59,46,.07); }
-  .lm-list .dot{ width:9px; height:9px; min-width:9px; border-radius:50%; border:1px solid var(--ink); align-self:center; }
-  .lm-list .nm{ flex:1 }
-  .lm-list .cat{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); }
-
-  .elev-bar{
-    height:14px; border:1px solid #8a6f4d; margin:6px 0 4px;
-    background:linear-gradient(90deg,#a9bfae 0%, #d8d3ab 30%, #e8d9ae 60%, #d9b98a 85%, #c69a72 100%);
-  }
-  .elev-lab{ display:flex; justify-content:space-between; font-size:11.5px; color:var(--ink-soft); }
-  .small{ font-size:12.5px; line-height:1.55; color:var(--ink-soft); }
-
-  .toggles{ display:flex; flex-direction:column; gap:7px; font-size:14px; }
-  .toggles label{ display:flex; align-items:center; gap:9px; cursor:pointer; }
-  .toggles input{ accent-color:var(--accent); width:14px; height:14px; }
-  button.btn{
-    font-family:inherit; font-size:12px; letter-spacing:.16em; text-transform:uppercase;
-    background:var(--paper); border:1px solid #8a6f4d; color:var(--ink);
-    padding:7px 12px; cursor:pointer; margin-top:12px; width:100%;
-    box-shadow:0 1px 0 #fffbe9 inset;
-  }
-  button.btn:hover{ background:#f9f2dd; }
-
-  .credits{ margin-top:18px; font-size:11.5px; line-height:1.6; color:var(--ink-soft); text-align:center; }
-  .credits a{ color:var(--accent); }
-  #warn{ display:none; margin-top:12px; font-size:12px; color:#7c2d20; border:1px dashed #b06b5c; padding:8px; }
-
-  /* ============ map ============ */
-  #map-wrap{ flex:1; position:relative; height:100%; }
-  #map{ position:absolute; inset:0; background:var(--paper); }
-  /* aged paper grain + vignette over the map */
-  #grain{
-    position:absolute; inset:0; pointer-events:none; z-index:3; mix-blend-mode:multiply; opacity:.5;
+  body::after{
+    content:""; position:fixed; inset:0; pointer-events:none; mix-blend-mode:multiply; opacity:.5;
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/><feColorMatrix type='matrix' values='0 0 0 0 0.45 0 0 0 0 0.38 0 0 0 0 0.26 0 0 0 0.05 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+    box-shadow:inset 0 0 130px rgba(82,60,28,.3);
   }
-  #vignette{
-    position:absolute; inset:0; pointer-events:none; z-index:3;
-    box-shadow:inset 0 0 130px rgba(82,60,28,.34), inset 0 0 16px rgba(82,60,28,.18);
+  main{
+    width:100%; max-width:480px; background:var(--card);
+    border:1px solid var(--rule); outline:1px solid var(--rule); outline-offset:4px;
+    box-shadow:0 6px 26px rgba(70,50,20,.3); padding:38px 30px 26px; text-align:center;
   }
-
-  /* compass rose */
-  #rose{ position:absolute; top:18px; right:60px; width:84px; height:84px; z-index:4; cursor:pointer;
-         filter:drop-shadow(0 2px 3px rgba(60,40,10,.35)); transition:transform .15s linear; }
-  #rose:hover{ filter:drop-shadow(0 2px 5px rgba(60,40,10,.55)); }
-
-  /* cartouche */
-  #cartouche{
-    position:absolute; right:18px; bottom:34px; z-index:4; pointer-events:none;
-    background:var(--card); border:1px solid var(--rule); outline:1px solid var(--rule); outline-offset:2px;
-    padding:8px 16px; text-align:center; box-shadow:0 2px 8px rgba(70,50,20,.25);
+  .eyebrow{ font-size:11px; letter-spacing:.32em; text-transform:uppercase; color:var(--accent); margin:0 0 12px; }
+  h1{ font-family:'IM Fell English',serif; font-weight:400; font-size:44px; letter-spacing:.14em; margin:0; line-height:1; }
+  .tagline{ font-style:italic; color:var(--ink-soft); font-size:15px; margin:12px 0 0; line-height:1.5; }
+  .flourish{ color:var(--rule); font-size:15px; margin:18px 0; letter-spacing:.6em; }
+  ul{ list-style:none; margin:0; padding:0; text-align:left; }
+  li + li{ margin-top:12px; }
+  a.chart{
+    display:block; text-decoration:none; color:var(--ink);
+    border:1px solid #8a6f4d; border-left:5px solid var(--accent);
+    background:rgba(246,238,217,.9); padding:14px 16px 12px;
+    box-shadow:0 2px 5px rgba(60,40,10,.25); transition:background .15s;
   }
-  #cartouche .t1{ font-family:'IM Fell English',serif; font-size:13px; letter-spacing:.18em; }
-  #cartouche .t2{ font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft); margin-top:2px; }
-
-  /* elevation readout */
-  #elev-readout{
-    position:absolute; left:12px; bottom:64px; z-index:4; pointer-events:none;
-    font-size:12px; font-style:italic; color:var(--ink); background:rgba(244,236,216,.88);
-    border:1px solid var(--rule); padding:3px 9px; display:none;
+  a.chart:hover{ background:#fdf7e4; }
+  a.chart .nm{
+    font-weight:600; font-size:17px; letter-spacing:.1em; text-transform:uppercase; display:block;
   }
-
-  /* loading veil */
-  #veil{
-    position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center;
-    background:var(--paper); transition:opacity .8s; font-family:'IM Fell English',serif;
-    font-size:18px; letter-spacing:.14em; color:var(--ink-soft);
-  }
-  #veil.gone{ opacity:0; pointer-events:none; }
-
-  /* landmark tags */
-  .lmk{
-    --c:var(--accent);
-    font-family:'EB Garamond',serif; font-weight:600; font-size:10.5px; letter-spacing:.1em;
-    text-transform:uppercase; white-space:nowrap; color:var(--ink); cursor:pointer;
-    background:rgba(246,238,217,.95); border:1px solid #8a6f4d; border-left:4px solid var(--c);
-    padding:3px 7px 2px; position:relative;
-    box-shadow:0 2px 4px rgba(60,40,10,.35);
-  }
-  .lmk::after{
-    content:""; position:absolute; left:50%; bottom:-5px; margin-left:-4px;
-    border:4px solid transparent; border-top-color:#8a6f4d; border-bottom:none;
-  }
-  .lmk:hover{ background:#fdf7e4; }
-
-  /* maplibre chrome, vintage-ified */
-  .maplibregl-popup-content{
-    font-family:'EB Garamond',serif; background:var(--card); color:var(--ink);
-    border:1px solid #8a6f4d; box-shadow:0 3px 12px rgba(60,40,10,.4);
-    padding:13px 15px 11px; max-width:250px;
-  }
-  .maplibregl-popup-content h3{
-    margin:0 0 2px; font-size:15px; letter-spacing:.06em; font-weight:700;
-  }
-  .maplibregl-popup-content .pcat{
-    font-size:9.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--ink-soft);
-    display:block; margin-bottom:6px;
-  }
-  .maplibregl-popup-content p{ margin:0; font-size:13px; line-height:1.5; }
-  .maplibregl-popup-tip{ border-top-color:#8a6f4d !important; }
-  .maplibregl-popup-close-button{ color:var(--ink-soft); font-size:18px; }
-  .maplibregl-ctrl-group{ background:var(--card); border:1px solid #8a6f4d; border-radius:0; }
-  .maplibregl-ctrl-group button{ border-radius:0 !important; }
-  .maplibregl-ctrl-group button + button{ border-top:1px solid var(--rule); }
-  .maplibregl-ctrl-scale{
-    background:rgba(244,236,216,.85); border-color:var(--ink-soft); color:var(--ink);
-    font-family:'EB Garamond',serif; font-size:11px;
-  }
-  .maplibregl-ctrl-attrib{ background:rgba(244,236,216,.85) !important; font-family:'EB Garamond',serif; }
-
-  /* mobile */
-  #panel-toggle{ display:none; }
-  @media (max-width:760px){
-    body{ flex-direction:column; }
-    #panel{
-      order:2; width:100%; min-width:0; height:46%; border-right:none;
-      border-top:1px solid #a78d63; padding:16px 18px; box-shadow:0 -4px 18px rgba(70,50,20,.25);
-    }
-    #map-wrap{ height:54%; }
-    h1{ font-size:34px }
-    #rose{ width:60px; height:60px; right:52px; top:12px; }
-    #cartouche{ display:none; }
-  }
+  a.chart .ds{ font-style:italic; font-size:13.5px; color:var(--ink-soft); display:block; margin-top:3px; line-height:1.45; }
+  .credits{ margin-top:26px; font-size:11.5px; color:var(--ink-soft); line-height:1.6; }
+  .credits a{ color:var(--accent); }
 </style>
 </head>
 <body>
-
-<aside id="panel">
-  <div class="frame">
-    <p class="eyebrow">United States <span class="sep">&middot;</span> Gulf South <span class="sep">&middot;</span> Louisiana</p>
-    <h1>RUSTON</h1>
-    <p class="tagline">Seat of Lincoln Parish &mdash; a railroad town of 1884<br>in the piney hills of North Louisiana</p>
-    <div class="flourish">&#10087;</div>
-
-    <p class="about">Ruston was born in 1884, when Robert E. Russ offered up his land along the newly laid
-    Vicksburg, Shreveport &amp; Pacific Railroad and a town &mdash; &ldquo;Russ Town&rdquo; &mdash; grew at the
-    depot, soon taking the parish seat from old Vienna just to the north. The Rock Island line later crossed
-    the V.S.&amp;P. here, and the crossing made the town.</p>
-    <p class="about" style="font-size:14px">Today some 22,000 people live among these wooded ridges, midway
-    between Shreveport and Monroe on Interstate&nbsp;20. Louisiana Tech University anchors the west side of town,
-    Grambling State University lies four miles further west, and each June the streets downtown fill for the
-    Louisiana Peach Festival, held since 1951 in honor of the orchards in the surrounding hills.</p>
-
-    <h2>Particulars</h2>
-    <div class="facts">
-      <div><b>Founded</b>1884</div>
-      <div><b>Population</b>22,166 <span style="color:var(--ink-soft)">(2020)</span></div>
-      <div><b>Parish</b>Lincoln (seat)</div>
-      <div><b>Elevation</b>&approx;311 ft / 95 m</div>
-      <div><b>Coordinates</b>32&deg;31&prime;N&nbsp;92&deg;38&prime;W</div>
-      <div><b>Highways</b>I-20 &middot; US 80 &middot; US 167</div>
-    </div>
-
-    <h2>Landmarks</h2>
-    <ul class="lm-list" id="lm-list"></ul>
-
-    <h2>The Lay of the Land</h2>
-    <p class="small">Ruston sits in the rolling uplands of North Louisiana &mdash; sandy, pine-covered hills quite
-    unlike the flat delta to the east. Creeks running off these ridges feed Choudrant Bayou to the east and the
-    headwaters of Bayou D&rsquo;Arbonne to the north. Relief is gentle, so it is exaggerated here about
-    two-and-a-half-fold; drag with the right mouse button (or two fingers) to tilt and turn the chart.</p>
-    <div class="elev-bar"></div>
-    <div class="elev-lab"><span>&approx;130 ft <i>bottomlands</i></span><span>&approx;360 ft <i>ridgetops</i></span></div>
-    <p class="small" style="margin-top:6px">Contours at 40 ft, heavier every 200 ft (finer as you zoom in).
-    Point at the map to read the ground elevation.</p>
-
-    <h2>Display</h2>
-    <div class="toggles">
-      <label><input type="checkbox" id="tg-terrain" checked> Raised terrain (3-D)</label>
-      <label><input type="checkbox" id="tg-contours" checked> Contour lines</label>
-      <label><input type="checkbox" id="tg-marks" checked> Landmark tags</label>
-    </div>
-    <button class="btn" id="btn-reset">Return to the full prospect</button>
-    <div id="warn">The street survey could not be reached &mdash; the terrain is drawn, but roads and water may be
-    missing. Check your connection and reload.</div>
-
-    <div class="credits">
-      Streets, waters &amp; names from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
-      contributors, served by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>.<br>
-      Elevations from USGS&nbsp;3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain&nbsp;Tiles on AWS</a> (Mapzen).<br>
-      Drawn with MapLibre&nbsp;GL &middot; MMXXVI
-    </div>
-  </div>
-</aside>
-
-<div id="map-wrap">
-  <div id="map"></div>
-  <div id="grain"></div>
-  <div id="vignette"></div>
-
-  <svg id="rose" viewBox="0 0 100 100" aria-label="Compass rose — click to face north">
-    <g fill="none" stroke="#3f3322" stroke-width="1">
-      <circle cx="50" cy="50" r="40" fill="rgba(244,236,216,.85)"/>
-      <circle cx="50" cy="50" r="33"/>
-      <circle cx="50" cy="50" r="4" fill="#3f3322"/>
-    </g>
-    <g id="rose-needle">
-      <path d="M50 8 L56 50 L50 60 L44 50 Z" fill="#9a3b2e" stroke="#3f3322" stroke-width=".8"/>
-      <path d="M50 92 L56 50 L50 60 L44 50 Z" fill="#f4ecd8" stroke="#3f3322" stroke-width=".8" transform="rotate(180 50 50)"/>
-      <path d="M8 50 L50 44 L60 50 L50 56 Z" fill="#f4ecd8" stroke="#3f3322" stroke-width=".7"/>
-      <path d="M92 50 L50 44 L60 50 L50 56 Z" fill="#f4ecd8" stroke="#3f3322" stroke-width=".7" transform="rotate(180 50 50)"/>
-    </g>
-    <text x="50" y="6.5" text-anchor="middle" font-size="11" font-family="IM Fell English, serif" fill="#3f3322">N</text>
-  </svg>
-
-  <div id="cartouche">
-    <div class="t1">A LIVING CHART OF RUSTON</div>
-    <div class="t2">&amp; the hills of Lincoln Parish &middot; Louisiana</div>
-  </div>
-
-  <div id="elev-readout"></div>
-  <div id="veil">Surveying the piney hills&hellip;</div>
-</div>
-
-<script src="vendor/maplibre-gl.js"></script>
-<script src="vendor/maplibre-contour.min.js"></script>
-<script>
-(function(){
-  'use strict';
-
-  var glTest = document.createElement('canvas');
-  if (!(glTest.getContext('webgl2') || glTest.getContext('webgl'))) {
-    document.getElementById('veil').textContent = 'This chart requires a browser with WebGL.';
-    return;
-  }
-
-  var EXAGGERATION = 2.5;
-  var HOME = { center:[-92.6365, 32.5285], zoom:12.35, pitch:52, bearing:-12 };
-
-  /* ---------- terrain & contours from public Terrain Tiles (USGS/SRTM via Mapzen on AWS) ---------- */
-  var demSource = new mlcontour.DemSource({
-    url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
-    encoding: 'terrarium',
-    maxzoom: 13,
-    worker: true
-  });
-  demSource.setupMaplibre(maplibregl);
-
-  var contourTiles = demSource.contourProtocolUrl({
-    multiplier: 3.28084,               /* label contours in feet */
-    thresholds: {                      /* zoom: [minor, major] in ft */
-      9:  [200, 1000],
-      11: [100, 500],
-      12: [40, 200],
-      14: [20, 100],
-      16: [10, 50]
-    },
-    contourLayer: 'contours',
-    elevationKey: 'ele',
-    levelKey: 'level',
-    overzoom: 1
-  });
-
-  /* ---------- a hand-tinted, antique style over live OpenStreetMap vector data ---------- */
-  var INK = '#3f3322';
-  var PAPER = '#efe5cd';
-  var WATER = '#a4bdb9';
-  var name = ['coalesce', ['get','name:latin'], ['get','name:en'], ['get','name']];
-
-  var style = {
-    version: 8,
-    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-    sky: {
-      'sky-color': '#e6d9b8', 'horizon-color': PAPER, 'fog-color': PAPER,
-      'sky-horizon-blend': 0.8, 'horizon-fog-blend': 0.6
-    },
-    sources: {
-      openmaptiles: { type:'vector', url:'https://tiles.openfreemap.org/planet' },
-      'terrain-dem': { type:'raster-dem', encoding:'terrarium',
-        tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
-      'hillshade-dem': { type:'raster-dem', encoding:'terrarium',
-        tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
-      contours: { type:'vector', tiles:[contourTiles], maxzoom:15 }
-    },
-    layers: [
-      { id:'background', type:'background', paint:{ 'background-color': PAPER } },
-
-      /* ---- land tints ---- */
-      { id:'lc-wood', type:'fill', source:'openmaptiles', 'source-layer':'landcover',
-        filter:['in',['get','class'],['literal',['wood','forest']]],
-        paint:{ 'fill-color':'#d6d2ab', 'fill-opacity':0.5, 'fill-antialias':false } },
-      { id:'lc-grass', type:'fill', source:'openmaptiles', 'source-layer':'landcover',
-        filter:['in',['get','class'],['literal',['grass','farmland','meadow']]],
-        paint:{ 'fill-color':'#e0dab4', 'fill-opacity':0.45, 'fill-antialias':false } },
-      { id:'lc-wetland', type:'fill', source:'openmaptiles', 'source-layer':'landcover',
-        filter:['==',['get','class'],'wetland'],
-        paint:{ 'fill-color':'#bcc9b4', 'fill-opacity':0.45, 'fill-antialias':false } },
-      { id:'lu-residential', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
-        filter:['in',['get','class'],['literal',['residential','suburbs','neighbourhood']]],
-        paint:{ 'fill-color':'#e8dcbd', 'fill-opacity':0.4, 'fill-antialias':false } },
-      { id:'lu-built', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
-        filter:['in',['get','class'],['literal',['commercial','retail','industrial']]],
-        paint:{ 'fill-color':'#e4cfae', 'fill-opacity':0.35, 'fill-antialias':false } },
-      { id:'lu-campus', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
-        filter:['in',['get','class'],['literal',['college','university','school','hospital']]],
-        paint:{ 'fill-color':'#e3cda4', 'fill-opacity':0.5, 'fill-antialias':false } },
-      { id:'lu-green', type:'fill', source:'openmaptiles', 'source-layer':'landuse',
-        filter:['in',['get','class'],['literal',['cemetery','stadium','pitch','playground','garden','zoo']]],
-        paint:{ 'fill-color':'#d2d2a4', 'fill-opacity':0.5, 'fill-antialias':false } },
-      { id:'park', type:'fill', source:'openmaptiles', 'source-layer':'park',
-        paint:{ 'fill-color':'#ccd3a3', 'fill-opacity':0.4, 'fill-antialias':false } },
-
-      /* ---- relief ---- */
-      { id:'hillshade', type:'hillshade', source:'hillshade-dem',
-        paint:{
-          'hillshade-shadow-color':'#5e4b30',
-          'hillshade-highlight-color':'#fffdf0',
-          'hillshade-accent-color':'#8a7050',
-          'hillshade-exaggeration':0.55,
-          'hillshade-illumination-direction':335
-        } },
-
-      /* ---- contours ---- */
-      { id:'contour-minor', type:'line', source:'contours', 'source-layer':'contours',
-        filter:['==',['get','level'],0],
-        paint:{ 'line-color':'rgba(141,111,72,0.4)', 'line-width':0.7 } },
-      { id:'contour-major', type:'line', source:'contours', 'source-layer':'contours',
-        filter:['>',['get','level'],0],
-        paint:{ 'line-color':'rgba(122,93,56,0.55)', 'line-width':1.4 } },
-      { id:'contour-label', type:'symbol', source:'contours', 'source-layer':'contours',
-        filter:['>',['get','level'],0], minzoom:12,
-        layout:{
-          'symbol-placement':'line',
-          'text-field':['concat',['number-format',['get','ele'],{}],' ft'],
-          'text-font':['Noto Sans Italic'], 'text-size':10, 'symbol-spacing':320
-        },
-        paint:{ 'text-color':'#7a5d38', 'text-halo-color':PAPER, 'text-halo-width':1.4 } },
-
-      /* ---- water ---- */
-      { id:'water', type:'fill', source:'openmaptiles', 'source-layer':'water',
-        filter:['!=',['get','intermittent'],1],
-        paint:{ 'fill-color':WATER } },
-      { id:'water-intermittent', type:'fill', source:'openmaptiles', 'source-layer':'water',
-        filter:['==',['get','intermittent'],1],
-        paint:{ 'fill-color':WATER, 'fill-opacity':0.55 } },
-      { id:'water-edge', type:'line', source:'openmaptiles', 'source-layer':'water',
-        paint:{ 'line-color':'#7e9f9c', 'line-width':0.8 } },
-      { id:'waterway', type:'line', source:'openmaptiles', 'source-layer':'waterway',
-        paint:{
-          'line-color':'#86a5a1',
-          'line-width':['interpolate',['exponential',1.4],['zoom'], 9,0.5, 13,1.4, 16,3]
-        } },
-
-      /* ---- aeroway ---- */
-      { id:'aeroway-poly', type:'fill', source:'openmaptiles', 'source-layer':'aeroway',
-        filter:['==',['geometry-type'],'Polygon'],
-        paint:{ 'fill-color':'#dccfae', 'fill-opacity':0.7 } },
-      { id:'aeroway-line', type:'line', source:'openmaptiles', 'source-layer':'aeroway',
-        filter:['==',['geometry-type'],'LineString'],
-        paint:{ 'line-color':'#b3a384',
-          'line-width':['interpolate',['exponential',1.4],['zoom'], 11,['match',['get','class'],'runway',3,1], 16,['match',['get','class'],'runway',18,5]] } },
-
-      /* ---- buildings ---- */
-      { id:'buildings', type:'fill', source:'openmaptiles', 'source-layer':'building', minzoom:13.5,
-        paint:{
-          'fill-color':'#d9c4a0', 'fill-outline-color':'#a78d66',
-          'fill-opacity':['interpolate',['linear'],['zoom'], 13.5,0, 14.6,0.6]
-        } },
-
-      /* ---- roads (antique reds & buffs) ---- */
-      { id:'rd-minor-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:12,
-        filter:['all',['in',['get','class'],['literal',['minor','tertiary']]],['!=',['get','brunnel'],'tunnel']],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#9c8460',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 12,1, 14,2.6, 18,14] } },
-      { id:'rd-minor', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:12,
-        filter:['all',['in',['get','class'],['literal',['minor','tertiary']]],['!=',['get','brunnel'],'tunnel']],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#f3ead0',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 12,0.5, 14,1.8, 18,11] } },
-      { id:'rd-service', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:14,
-        filter:['in',['get','class'],['literal',['service','track']]],
-        paint:{ 'line-color':'#c3b28f',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 14,0.6, 18,5] } },
-      { id:'rd-path', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:14,
-        filter:['==',['get','class'],'path'],
-        paint:{ 'line-color':'#8a7250', 'line-dasharray':[1.5,1.8],
-          'line-width':['interpolate',['linear'],['zoom'], 14,0.7, 18,2] } },
-
-      { id:'rd-sec-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:10,
-        filter:['==',['get','class'],'secondary'],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#8a6c44',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 10,1.2, 14,4, 18,18] } },
-      { id:'rd-sec', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:10,
-        filter:['==',['get','class'],'secondary'],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#efdcae',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 10,0.6, 14,2.8, 18,14] } },
-
-      { id:'rd-pri-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:8,
-        filter:['in',['get','class'],['literal',['primary','trunk']]],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#7d5c33',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 8,1.2, 12,3.4, 14,5.5, 18,22] } },
-      { id:'rd-pri', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:8,
-        filter:['in',['get','class'],['literal',['primary','trunk']]],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#e6c089',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 8,0.7, 12,2.2, 14,4, 18,17] } },
-
-      { id:'rd-mwy-case', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:6,
-        filter:['==',['get','class'],'motorway'],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#6e4226',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 6,1.4, 12,4.4, 14,7, 18,26] } },
-      { id:'rd-mwy', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:6,
-        filter:['==',['get','class'],'motorway'],
-        layout:{ 'line-cap':'round', 'line-join':'round' },
-        paint:{ 'line-color':'#d08a52',
-          'line-width':['interpolate',['exponential',1.5],['zoom'], 6,0.8, 12,3, 14,5, 18,20] } },
-
-      /* ---- railways, hatched in the old manner ---- */
-      { id:'rail', type:'line', source:'openmaptiles', 'source-layer':'transportation',
-        filter:['==',['get','class'],'rail'],
-        paint:{ 'line-color':'#5d4f3b',
-          'line-width':['interpolate',['linear'],['zoom'], 9,0.8, 14,1.6, 18,3] } },
-      { id:'rail-hatch', type:'line', source:'openmaptiles', 'source-layer':'transportation', minzoom:11,
-        filter:['==',['get','class'],'rail'],
-        paint:{ 'line-color':'#5d4f3b', 'line-dasharray':[0.12, 3],
-          'line-width':['interpolate',['linear'],['zoom'], 11,4, 14,7, 18,12] } },
-
-      /* ---- boundaries ---- */
-      { id:'bdy-parish', type:'line', source:'openmaptiles', 'source-layer':'boundary',
-        filter:['all',['==',['get','admin_level'],6],['!=',['get','maritime'],1]],
-        paint:{ 'line-color':'#8b5e4b', 'line-width':1.8, 'line-dasharray':[5,2,1.5,2], 'line-opacity':0.75 } },
-      { id:'bdy-city', type:'line', source:'openmaptiles', 'source-layer':'boundary', minzoom:10,
-        filter:['all',['==',['get','admin_level'],8],['!=',['get','maritime'],1]],
-        paint:{ 'line-color':'#7d6b4f', 'line-width':1.1, 'line-dasharray':[3,2.2], 'line-opacity':0.7 } },
-
-      /* ---- names ---- */
-      { id:'lbl-road', type:'symbol', source:'openmaptiles', 'source-layer':'transportation_name', minzoom:13,
-        layout:{
-          'symbol-placement':'line', 'text-field':name,
-          'text-font':['Noto Sans Regular'], 'text-size':['interpolate',['linear'],['zoom'],13,10,17,13],
-          'symbol-spacing':380
-        },
-        paint:{ 'text-color':'#6d5839', 'text-halo-color':PAPER, 'text-halo-width':1.6 } },
-      { id:'lbl-water', type:'symbol', source:'openmaptiles', 'source-layer':'water_name',
-        layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':11.5 },
-        paint:{ 'text-color':'#54776f', 'text-halo-color':PAPER, 'text-halo-width':1.4 } },
-      { id:'lbl-waterway', type:'symbol', source:'openmaptiles', 'source-layer':'waterway', minzoom:12.5,
-        filter:['has','name'],
-        layout:{ 'symbol-placement':'line', 'text-field':name, 'text-font':['Noto Sans Italic'],
-                 'text-size':10.5, 'symbol-spacing':420 },
-        paint:{ 'text-color':'#54776f', 'text-halo-color':PAPER, 'text-halo-width':1.4 } },
-      { id:'lbl-poi', type:'symbol', source:'openmaptiles', 'source-layer':'poi', minzoom:15,
-        filter:['all',['has','name'],['<=',['get','rank'],12]],
-        layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':10.5,
-                 'text-max-width':8, 'text-padding':6 },
-        paint:{ 'text-color':'#71603f', 'text-halo-color':PAPER, 'text-halo-width':1.3 } },
-      { id:'lbl-hood', type:'symbol', source:'openmaptiles', 'source-layer':'place', minzoom:12.5,
-        filter:['in',['get','class'],['literal',['suburb','neighbourhood','quarter','hamlet']]],
-        layout:{ 'text-field':name, 'text-font':['Noto Sans Italic'], 'text-size':11.5,
-                 'text-letter-spacing':0.12, 'text-transform':'uppercase' },
-        paint:{ 'text-color':'#86714b', 'text-halo-color':PAPER, 'text-halo-width':1.5 } },
-      { id:'lbl-village', type:'symbol', source:'openmaptiles', 'source-layer':'place',
-        filter:['==',['get','class'],'village'],
-        layout:{ 'text-field':name, 'text-font':['Noto Sans Regular'], 'text-size':12,
-                 'text-letter-spacing':0.08 },
-        paint:{ 'text-color':'#594a30', 'text-halo-color':PAPER, 'text-halo-width':1.6 } },
-      { id:'lbl-town', type:'symbol', source:'openmaptiles', 'source-layer':'place',
-        filter:['in',['get','class'],['literal',['city','town']]],
-        layout:{
-          'text-field':name, 'text-font':['Noto Sans Bold'],
-          'text-size':['interpolate',['linear'],['zoom'], 9,13, 12,19, 14,24],
-          'text-letter-spacing':0.28, 'text-transform':'uppercase'
-        },
-        paint:{ 'text-color':'#4a3a26', 'text-halo-color':PAPER, 'text-halo-width':1.8 } }
-    ]
-  };
-
-  var map = new maplibregl.Map({
-    container:'map',
-    style:style,
-    center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch, bearing:HOME.bearing,
-    minZoom:9, maxZoom:17.5, maxPitch:70, hash:true,
-    maxBounds:[[-93.45,32.0],[-91.85,33.05]],
-    attributionControl:{ compact:true, customAttribution:
-      '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &middot; Terrain: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Mapzen/AWS</a> (USGS, SRTM)' }
-  });
-  map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
-  map.addControl(new maplibregl.ScaleControl({ unit:'imperial', maxWidth:110 }), 'bottom-left');
-  map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-left');
-
-  map.on('load', function(){
-    map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
-  });
-
-  /* ---------- landmarks ---------- */
-  var CATS = {
-    heritage:  { label:'Heritage',  color:'var(--c-heritage)',  hex:'#9a3b2e' },
-    education: { label:'Education', color:'var(--c-education)', hex:'#3f5573' },
-    nature:    { label:'Nature',    color:'var(--c-nature)',    hex:'#5c7345' },
-    transport: { label:'Transport', color:'var(--c-transport)', hex:'#8a6f4d' }
-  };
-  var LANDMARKS = [
-    { name:'Downtown & Railroad District', cat:'heritage', lngLat:[-92.6374, 32.5232], zoom:15.2,
-      blurb:'Brick storefronts of the 1890s–1920s face the old Vicksburg, Shreveport & Pacific tracks that gave Ruston its start in 1884. Home of the Dixie Center for the Arts and, each June, the Louisiana Peach Festival.' },
-    { name:'Louisiana Tech University', cat:'education', lngLat:[-92.6438, 32.5277], zoom:14.6,
-      blurb:'Founded in 1894 as the Industrial Institute and College of Louisiana; today about 11,000 students. Wyly Tower rises over the Quad, and the Bulldogs play at Joe Aillet Stadium on the north side of campus.' },
-    { name:'Grambling State University', cat:'education', lngLat:[-92.7158, 32.5253], zoom:14.4,
-      blurb:'Historically Black university founded in 1901, four miles west of Ruston. Its Tigers were coached for more than half a century by the legendary Eddie Robinson.' },
-    { name:'Lincoln Parish Park', cat:'nature', lngLat:[-92.6402, 32.5969], zoom:14.4,
-      blurb:'Wooded hills around a small lake north of town, with a sandy swim beach and a mountain-bike loop that draws riders from far beyond Louisiana.' },
-    { name:'Lincoln Parish Museum', cat:'heritage', lngLat:[-92.6368, 32.5293], zoom:15.5,
-      blurb:'A late-1800s home on North Vienna Street kept as a museum of parish history, a short walk north of the courthouse square.' },
-    { name:'Ruston Regional Airport', cat:'transport', lngLat:[-92.5880, 32.5146], zoom:13.8,
-      blurb:'The city’s general-aviation field (RSN) on the eastern edge of town, just south of US 80 — the old Dixie Overland Highway.' }
-  ];
-
-  var markers = [];
-  var listEl = document.getElementById('lm-list');
-  LANDMARKS.forEach(function(lm){
-    var el = document.createElement('div');
-    el.className = 'lmk';
-    el.style.setProperty('--c', CATS[lm.cat].hex);
-    el.textContent = lm.name.replace(' & Railroad District','').replace(' University','');
-    var popup = new maplibregl.Popup({ offset:[0,-26], maxWidth:'260px' }).setHTML(
-      '<h3>'+lm.name+'</h3><span class="pcat">'+CATS[lm.cat].label+'</span><p>'+lm.blurb+'</p>'
-    );
-    var mk = new maplibregl.Marker({ element:el, anchor:'bottom', offset:[0,-4] })
-      .setLngLat(lm.lngLat).setPopup(popup).addTo(map);
-    markers.push(mk);
-
-    var li = document.createElement('li');
-    li.innerHTML = '<span class="dot" style="background:'+CATS[lm.cat].hex+'"></span>'+
-                   '<span class="nm">'+lm.name+'</span><span class="cat">'+CATS[lm.cat].label+'</span>';
-    li.addEventListener('click', function(){
-      map.flyTo({ center:lm.lngLat, zoom:lm.zoom, duration:2200 });
-      markers.forEach(function(m){ if (m.getPopup().isOpen()) m.togglePopup(); });
-      mk.togglePopup();
-    });
-    listEl.appendChild(li);
-  });
-
-  /* ---------- controls ---------- */
-  document.getElementById('tg-terrain').addEventListener('change', function(e){
-    if (e.target.checked) {
-      map.setTerrain({ source:'terrain-dem', exaggeration:EXAGGERATION });
-      map.easeTo({ pitch:52, duration:900 });
-    } else {
-      map.setTerrain(null);
-      map.easeTo({ pitch:0, duration:900 });
-    }
-  });
-  document.getElementById('tg-contours').addEventListener('change', function(e){
-    var v = e.target.checked ? 'visible' : 'none';
-    ['contour-minor','contour-major','contour-label'].forEach(function(id){
-      map.setLayoutProperty(id, 'visibility', v);
-    });
-  });
-  document.getElementById('tg-marks').addEventListener('change', function(e){
-    markers.forEach(function(m){
-      m.getElement().style.display = e.target.checked ? '' : 'none';
-      if (!e.target.checked && m.getPopup().isOpen()) m.togglePopup();
-    });
-  });
-  document.getElementById('btn-reset').addEventListener('click', function(){
-    map.flyTo({ center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch, bearing:HOME.bearing, duration:2200 });
-  });
-
-  /* compass rose follows the bearing; click to face north */
-  var rose = document.getElementById('rose');
-  function turnRose(){ rose.style.transform = 'rotate(' + (-map.getBearing()) + 'deg)'; }
-  map.on('rotate', turnRose); turnRose();
-  rose.addEventListener('click', function(){ map.resetNorth({ duration:800 }); });
-
-  /* live elevation readout (true feet — exaggeration divided back out) */
-  var readout = document.getElementById('elev-readout');
-  map.on('mousemove', function(e){
-    if (!map.getTerrain()) { readout.style.display = 'none'; return; }
-    var z = map.queryTerrainElevation(e.lngLat);
-    if (z == null) { readout.style.display = 'none'; return; }
-    var ft = Math.round(z / EXAGGERATION * 3.28084 / 10) * 10;
-    readout.textContent = 'Elevation ≈ ' + ft + ' ft';
-    readout.style.display = 'block';
-  });
-  map.getCanvas().addEventListener('mouseleave', function(){ readout.style.display = 'none'; });
-
-  /* loading veil & a gentle warning if the street survey is unreachable */
-  var veil = document.getElementById('veil');
-  map.once('idle', function(){ veil.classList.add('gone'); });
-  setTimeout(function(){ veil.classList.add('gone'); }, 12000);
-  var warned = false;
-  map.on('error', function(e){
-    var msg = e && e.error && e.error.message || '';
-    var url = e && (e.source && e.source.url || '') ;
-    if (!warned && (msg.indexOf('openfreemap') !== -1 || String(url).indexOf('openfreemap') !== -1)) {
-      warned = true;
-      document.getElementById('warn').style.display = 'block';
-    }
-  });
-})();
-</script>
+<main>
+  <p class="eyebrow">A Cabinet of Curious Cartography</p>
+  <h1>THE ATLAS</h1>
+  <p class="tagline">Living charts drawn from open surveys &amp; public elevations,<br>one place at a time</p>
+  <div class="flourish">&#10087;</div>
+  <ul>
+    <li>
+      <a class="chart" href="ruston/">
+        <span class="nm">Ruston, Louisiana</span>
+        <span class="ds">The piney hills of Lincoln Parish &mdash; a railroad town of 1884, its universities, peaches &amp; contours</span>
+      </a>
+    </li>
+  </ul>
+  <p class="credits">
+    Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors,
+    <a href="https://openfreemap.org">OpenFreeMap</a> &amp; USGS / SRTM elevations.<br>
+    Drawn with MapLibre GL.
+  </p>
+</main>
 </body>
 </html>

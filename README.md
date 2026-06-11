@@ -1,18 +1,27 @@
-# A Living Chart of Ruston, Louisiana
+# The Atlas
 
-An interactive, antique-styled terrain map of Ruston and Lincoln Parish, Louisiana —
-parchment tones, raised 3-D relief, contour lines, hatched railroads, and a set of
-annotated landmarks, drawn entirely from live, publicly available data.
+A small collection of interactive, antique-styled maps drawn from live, publicly
+available data. Each map lives in its own directory; `index.html` at the root is
+the table of contents.
+
+| Map | Path |
+|---|---|
+| **Ruston, Louisiana** — parchment tones, raised 3-D relief, contour lines, hatched railroads, and annotated landmarks across the piney hills of Lincoln Parish | [`ruston/`](ruston/) |
 
 ## Viewing
 
-Open `index.html` in any modern browser (an internet connection is required for the
-map data). No build step, no API keys, no accounts.
+Open `index.html` (or `ruston/index.html`) in any modern browser — an internet
+connection is required for the map data, but there is no build step, no API keys,
+and no accounts. With GitHub Pages enabled, the atlas is served at
+`https://sulleyneal.github.io/Maps/` and the Ruston chart at
+`https://sulleyneal.github.io/Maps/ruston/`.
 
 ```sh
 # or serve it locally:
 python3 -m http.server 8000   # then visit http://localhost:8000
 ```
+
+## The Ruston chart
 
 - **Drag** to pan, **scroll** to zoom, **right-drag** (or two fingers) to tilt and rotate
 - Click the **compass rose** to face north again
