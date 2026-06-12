@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Broken Bow &amp; Beavers Bend — A Living Chart</title>
 <meta name="description" content="An interactive terrain map of Broken Bow, Hochatown, Broken Bow Lake and Beavers Bend State Park, Oklahoma — hiking trails, offroad country and points of interest in two switchable editions.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Broken Bow & Beavers Bend — A Living Chart">
+<meta property="og:description" content="Broken Bow Lake country in five editions — hiking trails with elevation profiles, offroad country, live river conditions.">
+<meta property="og:image" content="https://sulleyneal.github.io/Maps/assets/broken-bow-relief.jpg">
+<meta property="og:url" content="https://sulleyneal.github.io/Maps/broken-bow/">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../vendor/maplibre-gl.css">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -522,6 +528,7 @@
       <label><span class="row">Terrain height <output id="o-height">1.8&times;</output></span>
         <input type="range" id="sl-height" min="10" max="40" value="18"></label>
     </div>
+    <button class="btn" id="btn-tour">Take the tour</button>
     <button class="btn" id="btn-reset">Return to the full prospect</button>
     <button class="btn" id="btn-poster">Export a poster&hellip;</button>
     <button class="btn" id="btn-gpx">Add a GPX route&hellip;</button>
@@ -1805,6 +1812,35 @@
       })
       .catch(function(){ offStatus.textContent = 'Could not reach the tile service to save.'; });
   });
+
+  /* ---------- the tour: fly landmark to landmark ---------- */
+  var touring = false, tourIdx = -1, tourTimer = null;
+  var tourBtn = document.getElementById('btn-tour');
+  function stopTour(){
+    if (!touring) return;
+    touring = false;
+    clearTimeout(tourTimer);
+    tourBtn.textContent = 'Take the tour';
+  }
+  function tourStep(){
+    if (!touring) return;
+    tourIdx = (tourIdx + 1) % LANDMARKS.length;
+    var lm = LANDMARKS[tourIdx];
+    map.flyTo({ center: lm.lngLat, zoom: Math.min(lm.zoom, 14.8),
+                pitch: isNarrow ? 45 : 52, duration: 3000 });
+    showLandmark({ name: lm.name, catKey: lm.cat, catLabel: CAT_LABELS[lm.cat],
+                   blurb: lm.blurb }, lm.lngLat);
+    tourTimer = setTimeout(tourStep, 7000);
+  }
+  tourBtn.addEventListener('click', function(){
+    if (touring) { stopTour(); return; }
+    if (!LANDMARKS.length) return;
+    touring = true;
+    tourBtn.textContent = 'Stop the tour';
+    tourStep();
+  });
+  map.on('pointerdown', stopTour);
+  map.on('wheel', stopTour);
 
   /* ---------- toggles & reset ---------- */
   document.getElementById('tg-terrain').addEventListener('change', function(e){

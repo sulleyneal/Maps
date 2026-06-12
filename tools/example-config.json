@@ -1,0 +1,47 @@
+{
+  "slug": "hot-springs",
+  "name": "Hot Springs",
+  "title": "Hot Springs, Arkansas — A Living Chart",
+  "desc": "Bathhouse Row and the Ouachita ridges in five switchable editions.",
+  "region": "Garland County · Arkansas",
+  "cardDesc": "America's first resort town — thermal water, mountain ridges and lake country in five editions.",
+  "tags": ["3-D Terrain", "Contours"],
+  "added": "2026",
+  "eyebrow": "United States <span class=\"sep\">&middot;</span> Ouachitas <span class=\"sep\">&middot;</span> Arkansas",
+  "tagline": "Thermal water &amp; mountain ridges<br>in the oldest national park town",
+  "about": [
+    "Hot Springs grew up around the 143-degree springs at the foot of Hot Springs Mountain — a federal reservation since 1832, four decades before Yellowstone. Bathhouse Row remains the grandest line of bathhouses in America.",
+    "Around the town the Ouachita ridges run east to west, with the tower on Hot Springs Mountain, the lakes — Hamilton, Catherine, Ouachita — and trail networks in every direction."
+  ],
+  "facts": [
+    ["Founded", "1832 (reservation)"],
+    ["Population", "37,930 <span style=\"color:var(--ink-soft)\">(2020)</span>"],
+    ["County", "Garland"],
+    ["Park", "Hot Springs N.P."],
+    ["Springs", "143&deg;F &middot; 47 springs"],
+    ["Highways", "US 70 &middot; US 270"]
+  ],
+  "terrainNote": "The Ouachitas are old folded sandstone running east&ndash;west — the ridgelines and the valleys between them organize everything here. Drag with the right mouse button (or two fingers) to tilt and turn the map.",
+  "veil": "Surveying the Ouachitas&hellip;",
+  "cartouche": ["A LIVING CHART OF HOT SPRINGS", "Ouachita country &middot; Garland County &middot; Arkansas"],
+  "bbox": [-93.25, 34.40, -92.85, 34.65],
+  "camera": { "center": [-93.055, 34.515], "zoom": 11.6, "pitch": 54, "bearing": -8 },
+  "regionLabels": [
+    { "text": "THE OUACHITAS", "lngLat": [-93.18, 34.62] }
+  ],
+  "cats": {
+    "heritage":  { "label": "Heritage",   "antique": "#9a3b2e", "midnight": "#f43f5e" },
+    "culture":   { "label": "Culture",    "antique": "#6e4a72", "midnight": "#a78bfa" },
+    "nature":    { "label": "Recreation", "antique": "#5c7345", "midnight": "#34d399" },
+    "transport": { "label": "Transport",  "antique": "#8a6f4d", "midnight": "#fbbf24" }
+  },
+  "landmarks": [
+    { "name": "Bathhouse Row", "short": "Bathhouse Row", "cat": "heritage", "tier": 1,
+      "lngLat": [-93.0538, 34.5125], "zoom": 15.5,
+      "blurb": "Eight grand bathhouses from the golden age of taking the waters, now the heart of the national park." },
+    { "name": "Hot Springs Mountain Tower", "short": "Mountain Tower", "cat": "nature", "tier": 1,
+      "lngLat": [-93.0444, 34.5165], "zoom": 14.8,
+      "blurb": "A 216-foot tower on the mountaintop above the Row — the view runs the whole length of the Ouachitas." }
+  ],
+  "conditions": { "lat": 34.515, "lon": -93.055, "tz": "America/Chicago" }
+}
